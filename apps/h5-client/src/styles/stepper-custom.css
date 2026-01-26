@@ -1,0 +1,92 @@
+/* 全局步进器样式 */
+.van-stepper {
+  width: 80px !important;
+  height: 30px !important;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  box-sizing: border-box !important;
+  font-family: Arial, sans-serif !important;
+  box-shadow: none !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 定义亮黄色变量 */
+:root {
+  --stepper-yellow: #ffc800 !important;
+}
+
+/* 减号按钮样式 - 白色背景，亮黄色边框，亮黄色符号 */
+.van-stepper__minus {
+  width: 28px !important;
+  height: 28px !important;
+  background: #ffffff !important;
+  border: 1px solid var(--stepper-yellow) !important;
+  color: var(--stepper-yellow) !important;
+  font-size: 16px !important;
+  line-height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  border-radius: 50% !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.van-stepper__minus:hover {
+  background: #fffbe6 !important;
+}
+
+/* 加号按钮样式 - 亮黄色背景，白色符号 */
+.van-stepper__plus {
+  width: 28px !important;
+  height: 28px !important;
+  background: var(--stepper-yellow) !important;
+  border: 1px solid var(--stepper-yellow) !important;
+  color: #ffffff !important;
+  font-size: 16px !important;
+  line-height: 26px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  font-weight: 500 !important;
+  border-radius: 50% !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05) !important;
+}
+
+.van-stepper__plus:hover {
+  background: #e6b400 !important;
+}
+
+/* 输入框样式 */
+.van-stepper__input {
+  width: 24px !important;
+  height: 28px !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  color: #333333 !important;
+  border: none !important;
+  text-align: center !important;
+  background: transparent !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 28px !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  outline: none !important;
+}

@@ -1,0 +1,25 @@
+{
+  "name": "yuexiang-tea-order-system",
+  "version": "1.0.0",
+  "description": "悦享茶歇H5点单系统 - 完整版",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:h5\" \"npm run dev:admin\" \"npm run dev:server\"",
+    "dev:h5": "cd apps/h5-client && npm run dev",
+    "dev:admin": "cd apps/admin-panel && npm run dev",
+    "dev:server": "cd apps/server && npm run start:dev",
+    "build": "npm run build:h5 && npm run build:admin && npm run build:server",
+    "build:h5": "cd apps/h5-client && npm run build",
+    "build:admin": "cd apps/admin-panel && npm run build",
+    "build:server": "cd apps/server && npm run build",
+    "install:all": "npm install && npm run install:apps",
+    "install:apps": "cd apps/h5-client && npm install && cd ../admin-panel && npm install && cd ../server && npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

@@ -1,0 +1,276 @@
+:root {
+  /* 主题色系 - 围绕红色主题调整 */
+  --primary-color: #ee0a24;
+  --title-color: #323233;
+  --subtitle-color: #646566;
+  --divider-color: #ebedf0;
+  --bg-color: #f8f8f8;
+  
+  /* 辅助色 */
+  --success-color: #07c160;
+  --warning-color: #ff976a;
+  --danger-color: #ee0a24;
+  --info-color: #1989fa;
+  
+  /* 文本色 */
+  --text-primary: #323233;
+  --text-secondary: #646566;
+  --text-disabled: #c8c9cc;
+  
+  /* 边框 */
+  --border-color: #ebedf0;
+  --border-radius: 8px;
+  
+  /* 阴影 */
+  --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+}
+
+/* RTL布局支持 */
+[dir="rtl"] {
+  direction: rtl;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 滚动条美化 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* 全局布局 */
+.container {
+  max-width: 750px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.page {
+  min-height: 100vh;
+  background-color: var(--bg-color);
+}
+
+.page-content {
+  padding: 16px;
+  padding-bottom: 70px;
+}
+
+/* 卡片样式 */
+.card {
+  background: white;
+  border-radius: var(--border-radius);
+  padding: 16px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* 按钮样式 */
+.btn-primary {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+}
+
+.btn-primary:active {
+  background-color: #8ab80b;
+}
+
+/* 文本样式 */
+.text-primary {
+  color: var(--title-color);
+}
+
+.text-secondary {
+  color: var(--subtitle-color);
+}
+
+/* 加载状态 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* 空状态 */
+.empty-container {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+.empty-image {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 16px;
+}
+
+/* Vant Toast组件样式修复 */
+:root {
+  --van-toast-text-color: white;
+  --van-toast-background: rgba(0, 0, 0, 0.7);
+}
+
+/* 确保Vant Toast文字显示清晰 */
+.van-toast {
+  color: white !important;
+  background: rgba(0, 0, 0, 0.7) !important;
+  border-radius: 4px !important;
+  padding: 8px 16px !important;
+  font-size: 14px !important;
+  line-height: 1.4 !important;
+  min-width: auto !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* 确保Vant Dialog文字显示清晰 */
+.van-dialog__title {
+  color: var(--title-color) !important;
+}
+
+.van-dialog__message {
+  color: var(--subtitle-color) !important;
+}
+
+.van-dialog__confirm,
+.van-dialog__cancel {
+  color: var(--primary-color) !important;
+}
+
+/* 修复全局售罄横幅覆盖导航栏的问题 */
+/* 只调整层级关系，不改变横幅样式 */
+
+/* 确保底部导航栏始终显示在最上层 */
+.van-tabbar--fixed {
+  z-index: 1000 !important;
+}
+
+/* 恢复原始底部导航栏样式 */
+.van-tabbar {
+  background-color: #ffffff !important;
+  border-top: 1px solid #ebedf0 !important;
+  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.05) !important;
+  padding: 6px 0 !important;
+  border-radius: 0 !important;
+  margin: 0 !important;
+  height: auto !important;
+  background: #ffffff !important;
+}
+
+/* 恢复原始导航项样式 */
+.van-tabbar-item {
+  height: auto !important;
+  padding: 4px 0 !important;
+  border-radius: 0 !important;
+  transition: all 0.2s ease !important;
+  background-color: transparent !important;
+}
+
+/* 恢复原始选中状态导航项 */
+.van-tabbar-item--active {
+  background-color: transparent !important;
+  transform: none !important;
+}
+
+/* 恢复原始图标样式 */
+.van-tabbar-item__icon {
+  font-size: 24px !important;
+  color: #969799 !important;
+  margin-bottom: 2px !important;
+  transition: all 0.2s ease !important;
+}
+
+/* 恢复原始选中图标样式 */
+.van-tabbar-item--active .van-tabbar-item__icon {
+  color: var(--primary-color) !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* 恢复原始文字样式 */
+.van-tabbar-item__text {
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: #969799 !important;
+  font-family: inherit !important;
+  transition: all 0.2s ease !important;
+  text-shadow: none !important;
+}
+
+/* 恢复原始选中文字样式 */
+.van-tabbar-item--active .van-tabbar-item__text {
+  color: var(--primary-color) !important;
+  font-weight: 500 !important;
+  text-shadow: none !important;
+}
+
+/* 恢复原始徽章样式 */
+.van-badge {
+  background-color: var(--danger-color) !important;
+  color: white !important;
+  border-radius: 10px !important;
+  min-width: 20px !important;
+  height: 20px !important;
+  line-height: 20px !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+  border: none !important;
+  top: 5px !important;
+  right: 25% !important;
+}
+
+/* 恢复原始徽章位置 */
+.van-tabbar-item__icon .van-badge {
+  top: -3px !important;
+  right: -8px !important;
+}
+
+/* 移除脉冲动画 */
+.van-tabbar-item--active {
+  animation: none !important;
+}
+
+/* 移除脉冲动画关键帧 */
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1);
+  }
+}
+
+/* 确保购物车提交栏显示在最上层 */
+.van-submit-bar {
+  z-index: 1000 !important;
+}
+
+/* 确保产品详情页操作栏显示在最上层 */
+.van-action-bar {
+  z-index: 1000 !important;
+}
+
+/* 降低全局售罄横幅的层级，确保它在导航栏下方 */
+body > .sold-out-overlay,
+body > [class*="sold"][class*="overlay"]:not(.product-card .sold-out-overlay):not(.product-swipe .sold-out-overlay),
+body > [class*="out"][class*="banner"] {
+  z-index: 10 !important;
+}
+
+
