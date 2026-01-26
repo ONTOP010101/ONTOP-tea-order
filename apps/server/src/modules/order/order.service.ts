@@ -5,6 +5,7 @@ import { Order } from '../../entities/order.entity';
 import { OrderGateway } from '../websocket/order.gateway';
 import { ProductService } from '../product/product.service';
 import { SpecService } from '../spec/spec.service';
+import { UserService } from '../user/user.service';
 import dayjs from 'dayjs';
 
 @Injectable()
@@ -15,6 +16,7 @@ export class OrderService {
     private orderGateway: OrderGateway,
     private productService: ProductService,
     private specService: SpecService,
+    private userService: UserService,
   ) {}
 
   private async generateOrderNo(): Promise<string> {
@@ -38,12 +40,50 @@ export class OrderService {
     console.log('用户ID:', userId);
     
     try {
+      // 确保用户ID对应的用户存在，不存在则创建一个默认用户
+      let finalUserId: number;
+      try {
+        // 尝试获取用户信息
+        const user = await this.userService.findOne(userId);
+        if (user) {
+          finalUserId = parseInt(userId);
+        } else {
+          // 用户不存在，创建一个默认用户
+          console.log('用户不存在，创建默认用户...');
+          const defaultUser = await this.userService.create({
+            username: `guest_${Date.now()}`,
+            password: 'password123',
+            nickname: '匿名用户',
+            phone: '',
+            role: 'user'
+          });
+          finalUserId = defaultUser.id;
+          console.log('默认用户创建成功，ID:', finalUserId);
+        }
+      } catch (error) {
+        console.log('获取用户失败，创建默认用户...');
+        // 发生错误，创建一个默认用户
+        const defaultUser = await this.userService.create({
+          username: `guest_${Date.now()}`,
+          password: 'password123',
+          nickname: '匿名用户',
+          phone: '',
+          role: 'user'
+        });
+        finalUserId = defaultUser.id;
+        console.log('默认用户创建成功，ID:', finalUserId);
+      }
+      
       const order_no = await this.generateOrderNo();
       
       // 处理商品信息，强制使用中文名称和中文规格
       const processedItems = await Promise.all(data.items.map(async (item: any) => {
         // 根据商品ID获取完整商品信息
         const product = await this.productService.findOne(item.productId);
+        
+        if (!product) {
+          throw new Error(`商品不存在: ${item.productId}`);
+        }
         
         // 复制商品信息，强制使用中文名称
         const processedItem = {
@@ -91,7 +131,7 @@ export class OrderService {
       
       const order = this.orderRepository.create({
         order_no,
-        user_id: parseInt(userId),
+        user_id: finalUserId, // 使用确保存在的用户ID
         session_id: data.sessionId || null,
         items: JSON.stringify(processedItems), // 将处理后的items数组序列化为JSON字符串
         total_amount: data.totalAmount,

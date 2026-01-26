@@ -33,8 +33,10 @@
     "categories": "فئات المنتجات"
   },
   "category": {
-    "title": "الفئات",
-    "all": "الكل"
+    "title": "الأقسام",
+    "all": "الكل",
+    "noProducts": "لا توجد منتجات متاحة",
+    "noSearchResults": "لا توجد نتائج بحث"
   },
   "product": {
     "detail": "تفاصيل المنتج",

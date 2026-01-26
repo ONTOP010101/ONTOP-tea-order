@@ -34,7 +34,9 @@
   },
   "category": {
     "title": "分类",
-    "all": "全部"
+    "all": "全部",
+    "noProducts": "暂无商品",
+    "noSearchResults": "暂无搜索结果"
   },
   "product": {
     "detail": "商品详情",

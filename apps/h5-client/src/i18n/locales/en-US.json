@@ -33,8 +33,10 @@
     "categories": "Categories"
   },
   "category": {
-    "title": "Category",
-    "all": "All"
+    "title": "Categories",
+    "all": "All",
+    "noProducts": "No products available",
+    "noSearchResults": "No search results"
   },
   "product": {
     "detail": "Product Detail",

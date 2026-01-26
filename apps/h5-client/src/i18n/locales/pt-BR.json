@@ -34,7 +34,9 @@
   },
   "category": {
     "title": "Categoria",
-    "all": "Todos"
+    "all": "Todos",
+    "noProducts": "Nenhum produto disponível",
+    "noSearchResults": "Nenhum resultado de pesquisa"
   },
   "product": {
     "detail": "Detalhes do produto",

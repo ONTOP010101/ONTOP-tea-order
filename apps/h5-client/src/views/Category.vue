@@ -3,6 +3,18 @@
     <div class="category-page">
       <van-nav-bar :title="$t('category.title')" />
       
+      <!-- 搜索栏 -->
+      <div class="search-bar-container">
+        <van-search
+          v-model="searchKeyword"
+          placeholder="搜索商品"
+          @search="handleSearch"
+          @input="handleInput"
+          @clear="() => handleInput('')"
+          clearable
+        />
+      </div>
+      
       <!-- 加入购物车动画容器 -->
       <div class="addToCartAnimationContainer">
         <div
@@ -39,12 +51,12 @@
               <van-loading type="spinner" color="#ff6b6b" />
             </div>
 
-            <div v-else-if="products.length > 0">
+            <div v-else-if="filteredProducts.length > 0">
               <!-- 遍历商品，添加分类标题 -->
-              <template v-for="(product, index) in products" :key="product.id">
+              <template v-for="(product, index) in filteredProducts" :key="product.id">
                 <!-- 当商品分类变化时显示分类标题 -->
                 <div 
-                  v-if="index === 0 || product._categoryId !== products[index - 1]._categoryId"
+                  v-if="index === 0 || product._categoryId !== filteredProducts[index - 1]._categoryId"
                   class="category-divider"
                   :data-category-id="product._categoryId"
                   ref="(el) => {
@@ -123,7 +135,9 @@
             </div>
 
             <div v-else-if="!loading" class="empty-container">
-              <van-empty description="{{ $t('category.noProducts') }}" />
+              <van-empty 
+                :description="searchKeyword ? $t('category.noSearchResults') : $t('category.noProducts')" 
+              />
             </div>
           </div>
         </div>
@@ -173,7 +187,7 @@
               <div class="selected-item-specs" v-if="item.specs?.text">
                 {{ item.specs.text }}
               </div>
-              <div class="selected-item-price">¥{{ item.price.toFixed(2) }}</div>
+              <div class="selected-item-price">¥{{ Number(item.price).toFixed(2) }}</div>
             </div>
             <div class="quantity-controls">
               <van-stepper
@@ -215,25 +229,105 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { showToast, showLoadingToast, closeToast } from 'vant'
-import { getCategories, getProductsByCategory } from '@/api/product'
+import { getCategories, getProductsByCategory, searchProducts } from '@/api/product'
 import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/stores/cart'
 import type { Product, Category } from '@/types'
 
 const router = useRouter()
+const route = useRoute()
 const { t, locale } = useI18n()
 const cartStore = useCartStore()
 
 // 数据
 const categories = ref<Category[]>([])
 const products = ref<any[]>([])
+const searchKeyword = ref('')
+const isSearching = ref(false)
 const selectedCategoryId = ref<number | null>(null)
 const showSelectedProducts = ref(false)
 const loading = ref(false)
 const loadingMore = ref(false)
+
+// 过滤后的商品
+const filteredProducts = computed(() => {
+  if (!searchKeyword.value.trim()) {
+    return products.value
+  }
+  
+  const keyword = searchKeyword.value.toLowerCase()
+  return products.value.filter(product => {
+    const productName = getProductName(product).toLowerCase()
+    return productName.includes(keyword)
+  })
+})
+
+// 搜索处理
+const handleSearch = async () => {
+  if (searchKeyword.value.trim()) {
+    await performSearch()
+  }
+}
+
+// 输入变化处理
+const handleInput = async (value: string) => {
+  // 如果搜索关键词为空，恢复显示分类商品
+  if (!value.trim()) {
+    isSearching.value = false
+    // 重新加载当前分类的商品
+    if (selectedCategoryId.value) {
+      await loadProducts(selectedCategoryId.value)
+    }
+  }
+}
+
+// 执行搜索
+const performSearch = async () => {
+  if (!searchKeyword.value.trim()) return
+  
+  try {
+    loading.value = true
+    isSearching.value = true
+    
+    const response = await searchProducts(searchKeyword.value)
+    products.value = response.list || []
+  } catch (error) {
+    console.error('搜索商品失败:', error)
+    showToast(t('common.error'))
+  } finally {
+    loading.value = false
+  }
+}
+
+// 监听路由查询参数中的搜索关键词
+watch(
+  () => route.query.keyword,
+  async (newKeyword) => {
+    if (newKeyword) {
+      searchKeyword.value = newKeyword as string
+      await performSearch()
+    }
+  },
+  { immediate: true }
+)
+
+// 监听搜索关键词变化
+watch(
+  searchKeyword,
+  async (newKeyword, oldKeyword) => {
+    // 如果关键词从有到无，恢复显示分类商品
+    if (!newKeyword.trim() && oldKeyword.trim()) {
+      isSearching.value = false
+      // 重新加载当前分类的商品
+      if (selectedCategoryId.value) {
+        await loadProducts(selectedCategoryId.value)
+      }
+    }
+  }
+)
 
 // 无限滚动相关
 const currentCategoryIndex = ref(0)
@@ -532,7 +626,8 @@ const loadProducts = async (categoryId: number, append: boolean = false) => {
 
 // 加载更多商品
 const loadMoreProducts = async () => {
-  if (loadingMore.value || isAllCategoriesLoaded.value || categories.value.length === 0) {
+  // 如果正在搜索，不加载更多商品
+  if (isSearching.value || loadingMore.value || isAllCategoriesLoaded.value || categories.value.length === 0) {
     return
   }
   
@@ -567,6 +662,10 @@ const loadMoreProducts = async () => {
 // 选择分类
 const selectCategory = (category: Category) => {
   selectedCategoryId.value = category.id
+  
+  // 重置搜索状态
+  isSearching.value = false
+  searchKeyword.value = ''
   
   // 重置无限滚动状态
   currentCategoryIndex.value = categories.value.findIndex(cat => cat.id === category.id) || 0
@@ -766,6 +865,27 @@ onUnmounted(() => {
   padding-bottom: 60px; /* 为底部导航栏留出空间 */
 }
 
+/* 搜索栏容器 */
+.search-bar-container {
+  background-color: #ffffff;
+  padding: 6px 10px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  position: sticky;
+  top: var(--van-nav-bar-height);
+  z-index: 999;
+}
+
+.search-bar-container .van-search {
+  --van-search-background: #f5f5f5;
+  --van-search-text-color: #333333;
+  --van-search-placeholder-color: #999999;
+  --van-search-input-height: 26px;
+  --van-search-border-radius: 13px;
+  --van-search-icon-size: 14px;
+  --van-search-text-font-size: 13px;
+  --van-search-placeholder-font-size: 13px;
+}
+
 /* 固定导航栏样式 */
 .category-page .van-nav-bar {
   position: sticky;
@@ -773,6 +893,19 @@ onUnmounted(() => {
   z-index: 1000;
   background-color: #ffffff;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --van-nav-bar-height: 40px;
+  --van-nav-bar-title-font-size: 16px;
+  --van-nav-bar-title-line-height: 40px;
+}
+
+.category-page .van-nav-bar__content {
+  height: 40px;
+  line-height: 40px;
+}
+
+.category-page .van-nav-bar__title {
+  font-size: 16px;
+  line-height: 40px;
 }
 
 .category-container {
