@@ -18,11 +18,11 @@ echo 当前目录: %cd%
 
 REM 启动后端服务器
 echo 正在启动后端服务器...
-start "Backend Server" cmd /k "cd apps\server && %NODE% dist\main"
+start "Backend Server" cmd /k "cd apps\server && %NPM% run start:dev"
 
 REM 等待后端服务器启动
 echo 等待后端服务器启动...
-timeout /t 3 /nobreak >nul
+timeout /t 5 /nobreak >nul
 
 REM 启动前端H5客户端
 echo 正在启动前端H5客户端...
