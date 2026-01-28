@@ -4,6 +4,23 @@
       <h1>订单显示屏</h1>
       <div class="current-time">{{ currentTime }}</div>
       <div class="header-actions">
+        <el-button 
+          :type="sortBy === 'quantity' ? 'primary' : 'default' " 
+          size="medium" 
+          @click="sortOrdersByQuantity"
+          class="sort-button"
+        >
+          数量
+        </el-button>
+        <el-button 
+          :type="sortBy === 'category' ? 'primary' : 'default' " 
+          size="medium" 
+          @click="sortOrdersByCategory"
+          class="sort-button"
+        >
+          分类
+        </el-button>
+
         <el-button type="primary" size="medium" @click="loadOrders" class="refresh-button">
           <el-icon>
             <Refresh />
@@ -11,6 +28,8 @@
           刷新
         </el-button>
       </div>
+      
+
     </div>
     
     <!-- 订单状态统计 -->
@@ -56,6 +75,8 @@
         :key="order.id"
         class="order-card"
         :class="order.status"
+        @click="showOrderDetail(order)"
+        style="cursor: pointer;"
       >
         <div class="order-header">
           <div class="order-no">{{ order.order_no }}</div>
@@ -63,12 +84,17 @@
         </div>
         <div class="order-items">
           <div 
-          v-for="(item, index) in order.items" 
+          v-for="(item, index) in sortedOrderItems(order)" 
           :key="index"
           class="order-item"
         >
           <div class="item-main-info">
             <div class="item-name">{{ item.name }}</div>
+            <!-- 显示类别（仅在分类排序时） -->
+            <div v-if="sortBy === 'category'" class="item-category">
+              <span class="category-label">类别：</span>
+              <span class="category-value">{{ getItemCategory(item) }}</span>
+            </div>
             <!-- 显示规格组 -->
             <div v-if="item.specs?.text" class="item-specs">
               <span class="spec-item">{{ item.specs.text }}</span>
@@ -84,26 +110,26 @@
         </div>
         <div class="order-actions">
           <el-button 
-            v-if="order.status === 'pending'" 
+            v-if="order.status === 'pending' " 
             type="primary" 
             size="small"
-            @click="updateOrderStatus(order, 'preparing')"
+            @click.stop.prevent="updateOrderStatus(order, 'preparing')"
           >
             开始备餐
           </el-button>
           <el-button 
-            v-if="order.status === 'preparing' || order.status === 'processing' || order.status === 'making'" 
+            v-if="order.status === 'preparing' || order.status === 'processing' || order.status === 'making' " 
             type="success" 
             size="small"
-            @click="updateOrderStatus(order, 'completed')"
+            @click.stop.prevent="updateOrderStatus(order, 'completed')"
           >
             已出餐
           </el-button>
           <el-button 
-            v-if="order.status === 'pending'" 
+            v-if="order.status === 'pending' " 
             type="danger" 
             size="small"
-            @click="updateOrderStatus(order, 'cancelled')"
+            @click.stop.prevent="updateOrderStatus(order, 'cancelled')"
           >
             取消订单
           </el-button>
@@ -113,6 +139,55 @@
         暂无订单
       </div>
     </div>
+
+    <!-- 订单详情弹窗 -->
+    <el-dialog
+      v-model="dialogVisible"
+      title="订单详细商品列表"
+      width="600px"
+      destroy-on-close
+    >
+      <div v-if="selectedOrder" class="order-detail">
+        <div class="order-detail-header">
+          <div class="detail-item">
+            <span class="label">订单号：</span>
+            <span class="value">{{ selectedOrder.order_no }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">订单时间：</span>
+            <span class="value">{{ formatDate(selectedOrder.created_at) }}</span>
+          </div>
+          <div class="detail-item">
+            <span class="label">订单状态：</span>
+            <span class="value">{{ getStatusText(selectedOrder.status) }}</span>
+          </div>
+          <div class="detail-item" v-if="selectedOrder.remark">
+            <span class="label">备注：</span>
+            <span class="value">{{ selectedOrder.remark }}</span>
+          </div>
+        </div>
+        
+        <div class="order-detail-items">
+          <h3>商品列表</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>商品名称</th>
+                <th>规格</th>
+                <th>数量</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(item, index) in selectedOrder.items" :key="index">
+                <td>{{ item.name }}</td>
+                <td>{{ item.specs?.text || '-' }}</td>
+                <td>{{ item.quantity }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -139,6 +214,7 @@ interface OrderItem {
   quantity: number
   image: string
   specs?: any
+  category?: string
 }
 
 interface Order {
@@ -161,6 +237,13 @@ const orders = ref<Order[]>([])
 const loading = ref(false)
 const currentTime = ref('')
 const selectedStatus = ref('pending')
+const sortBy = ref<string>('default') // default, quantity, category
+
+// 订单详情弹窗
+const dialogVisible = ref(false)
+const selectedOrder = ref<Order | null>(null)
+
+
 
 // 筛选订单
 const pendingOrders = ref<Order[]>([])
@@ -192,6 +275,128 @@ const selectStatus = (status: string) => {
   selectedStatus.value = status
 }
 
+// 显示订单详情
+const showOrderDetail = (order: Order) => {
+  selectedOrder.value = order
+  dialogVisible.value = true
+}
+
+// 获取订单状态文本
+const getStatusText = (status: string): string => {
+  const statusMap: Record<string, string> = {
+    pending: '待接单',
+    preparing: '备餐中',
+    processing: '处理中',
+    making: '制作中',
+    ready: '已准备',
+    completed: '已出餐',
+    cancelled: '已取消'
+  }
+  return statusMap[status] || status
+}
+
+// 获取商品类别
+const getItemCategory = (item: any): string => {
+  // 1. 优先使用商品的category字段（后台提供的分类）
+  if ((item as any).category) {
+    return (item as any).category;
+  }
+  // 2. 其次从规格文本中提取类别
+  if (item.specs && item.specs.text) {
+    // 匹配规格文本开头的类别部分
+    const match = item.specs.text.match(/^(\w+):/);
+    if (match) {
+      return match[1];
+    }
+  }
+  // 3. 根据商品名称推断类别
+  const itemName = item.name.toLowerCase();
+  
+  // 蛋糕甜点类
+  const cakeKeywords = ['蛋糕', '布朗尼', '巴斯克', '提拉米苏', '蛋糕卷'];
+  if (cakeKeywords.some(keyword => itemName.includes(keyword))) {
+    return '蛋糕';
+  }
+  
+  // 咖啡类
+  const coffeeKeywords = ['咖啡', '卡布奇诺', '拿铁', '美式', '摩卡'];
+  if (coffeeKeywords.some(keyword => itemName.includes(keyword))) {
+    return '咖啡';
+  }
+  
+  // 奶茶类
+  const milkTeaKeywords = ['奶茶', '奶盖茶', '老红糖生姜鲜奶'];
+  if (milkTeaKeywords.some(keyword => itemName.includes(keyword))) {
+    return '奶茶';
+  }
+  
+  // 茶类
+  const teaKeywords = ['茶', '绿茶', '红茶', '功夫茶', '果茶', '花茶', '乌龙茶'];
+  if (teaKeywords.some(keyword => itemName.includes(keyword))) {
+    return '茶';
+  }
+  
+  // 饮料类
+  const drinkKeywords = ['可乐', '椰子汁', '饮料', '王老吉', '百事可乐'];
+  if (drinkKeywords.some(keyword => itemName.includes(keyword))) {
+    return '饮料';
+  }
+  
+  // 其他常见类别
+  if (itemName.includes('奶')) {
+    return '奶制品';
+  } else if (itemName.includes('糖')) {
+    return '甜品';
+  }
+  
+  // 4. 最后使用商品名称的首字母
+  return item.name.charAt(0).toUpperCase() || '';
+};
+
+// 排序订单内的商品
+const sortedOrderItems = (order: Order) => {
+  const items = [...order.items]
+  
+  if (sortBy.value === 'quantity') {
+    // 按商品数量从多到少排序
+    return items.sort((a, b) => b.quantity - a.quantity)
+  } else if (sortBy.value === 'category') {
+    // 按商品实际分类排序，同类别按数量从多到少排序
+    return items.sort((a, b) => {
+      const categoryA = getItemCategory(a);
+      const categoryB = getItemCategory(b);
+      
+      // 先按类别排序
+      if (categoryA !== categoryB) {
+        return categoryA.localeCompare(categoryB);
+      }
+      
+      // 同类别按数量从多到少排序
+      return b.quantity - a.quantity;
+    })
+  } else {
+    // 默认顺序
+    return items;
+  }
+}
+
+
+
+// 计算订单总商品数量
+const getOrderTotalQuantity = (order: Order): number => {
+  return order.items.reduce((total, item) => total + item.quantity, 0)
+}
+
+// 按数量排序订单
+const sortOrdersByQuantity = () => {
+  sortBy.value = sortBy.value === 'quantity' ? 'default' : 'quantity'
+}
+
+// 按分类排序订单
+const sortOrdersByCategory = () => {
+  sortBy.value = sortBy.value === 'category' ? 'default' : 'category'
+}
+
 // 过滤订单
 const filteredOrders = computed(() => {
   return orders.value.filter(order => {
@@ -212,13 +417,11 @@ const filteredOrders = computed(() => {
 const loadOrders = async () => {
   try {
     loading.value = true
-    console.log('🔄 开始加载订单...')
     // 使用相对路径，通过vite.config.ts中的代理配置访问服务器
     // 注意：这里获取所有订单，明确不添加sessionId参数，确保能看到所有用户的订单
     const response = await apiClient.get('/api/orders/admin/all', {
       params: {}
     })
-    console.log('📦 收到订单数据:', response.data)
     
     // 正确处理API响应格式：{ code: 200, data: { list: [], total: 0 } }
     let orderList = []
@@ -236,11 +439,8 @@ const loadOrders = async () => {
     });
     
     orders.value = orderList
-    console.log('📋 订单总数:', orders.value.length)
     filterOrders()
-    console.log('✅ 订单加载完成，待接单数量:', pendingOrders.value.length)
   } catch (error: any) {
-    console.error('❌ 加载订单失败:', error.message, error.response?.data)
     // 更详细的错误提示
     let errorMsg = '加载订单失败'
     if (error.code === 'ECONNABORTED') {
@@ -274,6 +474,8 @@ const updateOrderStatus = async (order: Order, status: 'pending' | 'preparing' |
     // 使用相对路径，通过vite.config.ts中的代理配置访问服务器
     await apiClient.put(`/api/orders/${order.id}/status`, { status })
     ElMessage.success('订单状态更新成功')
+    // 重置排序状态，确保不显示分类信息
+    sortBy.value = 'default'
     loadOrders()
   } catch (error: any) {
     console.error('更新订单状态失败:', error)
@@ -284,6 +486,8 @@ const updateOrderStatus = async (order: Order, status: 'pending' | 'preparing' |
     ElMessage.error(errorMsg)
   }
 }
+
+
 
 // 定时器引用
 let timer: number | null = null
@@ -384,18 +588,15 @@ const checkTimeoutOrders = () => {
       return now - orderTime >= oneMinute;
     });
     
-    console.log('🔍 检查超时订单:', timeoutOrders.length, '个待接单订单超时');
-    
     // 如果有待接单超时订单，且距离上次播报超过1分钟，则播报
     if (timeoutOrders.length > 0) {
       const timeSinceLastAnnounce = now - lastTimeoutAnnounceTime;
       if (timeSinceLastAnnounce >= oneMinute) {
-        console.log('⏰ 播放超时订单提示');
         playTimeoutOrderSound();
       }
     }
   } catch (error) {
-    console.error('检查超时订单失败:', error);
+    // 检查超时订单失败
   }
 };
 
@@ -407,7 +608,7 @@ const initSpeechSynthesis = () => {
     
     // 监听语音列表加载完成事件
     window.speechSynthesis.onvoiceschanged = () => {
-      console.log('✅ 语音列表已加载');
+      // 语音列表已加载
     };
   }
 };
@@ -445,21 +646,18 @@ const initWebSocket = () => {
       transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionAttempts: 5,
-      reconnectionDelay: 1000
+      reconnectionDelay: 1000,
+      logger: false,
+      autoConnect: true
     });
     
     // 连接成功事件
     socket.on('connect', () => {
-      console.log('✅ WebSocket连接成功，命名空间：/order');
-      // 加入制作端房间
-      socket.emit('join-production', {});
-      console.log('✅ 已加入制作端房间：production-room');
       ElMessage.success('已连接到实时订单推送服务');
     });
     
     // 接收新订单事件 - 监听所有可能的事件名称
     socket.on('new-order', (data: any) => {
-      console.log('🎉 收到新订单事件:', data);
       // 立即刷新订单列表，确保第一时间显示
       loadOrders();
       // 显示明显提示，吸引注意
@@ -475,45 +673,25 @@ const initWebSocket = () => {
     
     // 接收订单状态变更事件
     socket.on('order-status-change', (data: any) => {
-      console.log('📋 订单状态变更事件:', data);
       // 立即刷新订单列表
       loadOrders();
     });
     
-    // 监听所有事件，用于调试
-    socket.onAny((event: string, ...args: any[]) => {
-      console.log(`🔔 收到事件: ${event}`, args);
-      // 如果是新订单或状态变更事件，确保刷新订单
-      if (event === 'new-order' || event === 'order-status-change') {
-        console.log('🔄 事件触发订单刷新');
-      }
-    });
-    
-    // 测试用：手动触发订单刷新
-    window.refreshOrders = () => {
-      console.log('🎯 手动触发订单刷新');
-      loadOrders();
-    };
-    
     // 连接错误事件
     socket.on('connect_error', (error: any) => {
-      console.error('❌ WebSocket连接错误:', error);
       ElMessage.warning('实时订单推送服务连接失败，将使用定时刷新');
     });
     
     // 断开连接事件
     socket.on('disconnect', (reason: any) => {
-      console.log('❌ WebSocket断开连接，原因:', reason);
       ElMessage.warning('实时订单推送服务已断开');
     });
     
     // 重连事件
     socket.on('reconnect', (attemptNumber: number) => {
-      console.log(`🔄 WebSocket重连成功，尝试次数: ${attemptNumber}`);
       ElMessage.success('实时订单推送服务已重新连接');
     });
   } catch (error) {
-    console.error('❌ 初始化WebSocket失败:', error);
     ElMessage.warning('实时订单推送服务初始化失败，将使用定时刷新');
   }
 }
@@ -572,6 +750,23 @@ onUnmounted(() => {
   margin-left: auto;
 }
 
+.sort-button {
+  padding: 8px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.sort-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+}
+
+.sort-button:active {
+  transform: translateY(0);
+}
+
 .refresh-button {
   display: flex;
   align-items: center;
@@ -595,6 +790,8 @@ onUnmounted(() => {
 .refresh-button .el-icon {
   font-size: 18px;
 }
+
+
 
 .stat-card:nth-child(5) {
   border-top: 4px solid #909399;
@@ -841,6 +1038,26 @@ onUnmounted(() => {
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
+.item-category {
+  margin-top: 4px;
+  margin-bottom: 4px;
+  font-size: 12px;
+}
+
+.category-label {
+  color: #606266;
+  font-weight: 500;
+}
+
+.category-value {
+  color: #409eff;
+  font-weight: 600;
+  background-color: rgba(64, 158, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-left: 4px;
+}
+
 .item-quantity {
   color: #374151;
   font-size: 14px;
@@ -988,5 +1205,64 @@ onUnmounted(() => {
   color: #6b7280;
   background: rgba(107, 114, 128, 0.1);
   border: 1px solid #6b7280;
+}
+
+/* 订单详情弹窗样式 */
+.order-detail {
+  padding: 10px 0;
+}
+
+.order-detail-header {
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.detail-item {
+  margin-bottom: 10px;
+  display: flex;
+}
+
+.detail-item .label {
+  font-weight: bold;
+  margin-right: 10px;
+  color: #606266;
+  min-width: 80px;
+}
+
+.detail-item .value {
+  color: #303133;
+}
+
+.order-detail-items h3 {
+  margin-bottom: 15px;
+  color: #303133;
+}
+
+.items-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.items-table th,
+.items-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.items-table th {
+  background-color: #f5f7fa;
+  font-weight: bold;
+  color: #606266;
+}
+
+.items-table tr:hover {
+  background-color: #f5f7fa;
+}
+
+.items-table td:first-child {
+  font-weight: 500;
+  color: #303133;
 }
 </style>

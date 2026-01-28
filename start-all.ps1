@@ -23,7 +23,7 @@ $backendBat = Join-Path $PSScriptRoot "start-backend.bat"
 @"
 @echo off
 cd apps\server
-"$NODE" dist\main
+"$NPM" run start:dev
 "@ | Out-File -FilePath $backendBat -Encoding ASCII
 # Start the batch file
 Start-Process -FilePath "cmd.exe" -ArgumentList "/k", "$backendBat" -WindowStyle Normal -WorkingDirectory $PWD

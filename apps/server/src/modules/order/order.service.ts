@@ -79,7 +79,8 @@ export class OrderService {
       // 处理商品信息，强制使用中文名称和中文规格
       const processedItems = await Promise.all(data.items.map(async (item: any) => {
         // 根据商品ID获取完整商品信息
-        const product = await this.productService.findOne(item.productId);
+        const product = await this.productService.findOne(parseInt(item.productId));
+        console.log('商品信息:', product);
         
         if (!product) {
           throw new Error(`商品不存在: ${item.productId}`);
@@ -90,6 +91,7 @@ export class OrderService {
           ...item,
           name: product.name, // 强制使用数据库中的中文名称
           image: product.image || item.image, // 使用数据库中的图片
+          category: product.category?.name || '', // 添加商品分类信息
         };
         
         // 如果有规格信息，重新生成中文规格文本
