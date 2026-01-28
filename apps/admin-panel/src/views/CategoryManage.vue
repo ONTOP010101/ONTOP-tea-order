@@ -3,10 +3,16 @@
     <el-card>
       <div class="header-actions">
         <h3>分类管理</h3>
-        <el-button type="primary" @click="handleAdd">
-          <el-icon><Plus /></el-icon>
-          新增分类
-        </el-button>
+        <div class="action-buttons">
+          <el-button type="warning" @click="showImportDialog = true">
+            <el-icon><Upload /></el-icon>
+            导入Excel
+          </el-button>
+          <el-button type="primary" @click="handleAdd">
+            <el-icon><Plus /></el-icon>
+            新增分类
+          </el-button>
+        </div>
       </div>
 
       <!-- 搜索栏 -->
@@ -115,14 +121,53 @@
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- Excel导入对话框 -->
+    <el-dialog
+      v-model="showImportDialog"
+      title="导入Excel添加分类"
+      width="500px"
+      destroy-on-close
+    >
+      <div class="import-dialog-content">
+        <p class="import-hint">请上传包含分类信息的Excel文件，支持直接添加新分类</p>
+        <el-upload
+          class="upload-excel"
+          action="#"
+          :auto-upload="false"
+          :on-change="handleExcelFile"
+          accept=".xlsx,.xls"
+          :limit="1"
+          :file-list="excelFileList"
+        >
+          <el-button type="primary">选择Excel文件</el-button>
+          <template #tip>
+            <div class="el-upload__tip">
+              支持 .xlsx 和 .xls 格式的Excel文件<br>
+              导入模板只需包含：分类名称、图片
+            </div>
+          </template>
+        </el-upload>
+        <el-button 
+          type="success" 
+          style="margin-top: 20px" 
+          @click="importExcel"
+          :loading="importLoading"
+          :disabled="!excelFile"
+        >
+          开始导入
+        </el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { Plus, Search } from '@element-plus/icons-vue'
+import { Plus, Search, Upload } from '@element-plus/icons-vue'
 import axios from 'axios'
+import * as XLSX from 'xlsx'
 
 const API_BASE = '/api'  // 使用相对路径，通过Vite代理转发
 
@@ -139,6 +184,12 @@ const dialogVisible = ref(false)
 const dialogTitle = ref('新增分类')
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
+
+// Excel导入相关
+const showImportDialog = ref(false)
+const excelFile = ref<File | null>(null)
+const excelFileList = ref<any[]>([])
+const importLoading = ref(false)
 
 // 调用后端翻译API
 const callTranslationAPI = async (text: string): Promise<{ en: string; ar: string; es: string; pt: string }> => {
@@ -205,7 +256,24 @@ const rules = {
 // 获取完整图片URL
 const getImageUrl = (imageUrl: string) => {
   if (!imageUrl) return ''
-  return imageUrl.startsWith('http') ? imageUrl : imageUrl
+  
+  // 检查是否为空或无效
+  if (!imageUrl || imageUrl.trim() === '') {
+    return ''
+  }
+  
+  // 处理 DISPIMG 格式的特殊 URL
+  if (imageUrl.includes('=DISPIMG(')) {
+    return ''
+  }
+  
+  if (imageUrl.startsWith('http')) {
+    return imageUrl
+  }
+  if (imageUrl.startsWith('/')) {
+    return `http://localhost:3003${imageUrl}`
+  }
+  return `http://localhost:3003/uploads/${imageUrl}`
 }
 
 // 加载分类列表
@@ -381,8 +449,8 @@ const handleIconSuccess = (response: any) => {
   }
   
   if (imageUrl) {
-    // 添加完整的后端URL
-    formData.icon = imageUrl.startsWith('http') ? imageUrl : imageUrl
+    // 如果是完整URL直接使用，否则拼接后端地址
+    formData.icon = imageUrl.startsWith('http') ? imageUrl : `http://localhost:3003${imageUrl}`
     ElMessage.success('图标上传成功')
   } else {
     ElMessage.error('图标上传失败：无法获取图片URL')
@@ -405,6 +473,118 @@ const beforeIconUpload = (file: File) => {
   return true
 }
 
+// 处理Excel文件选择
+const handleExcelFile = (file: any) => {
+  excelFile.value = file.raw
+  excelFileList.value = [file]
+}
+
+// 解析Excel文件
+const parseExcelFile = (file: File): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result
+        const workbook = XLSX.read(data, { type: 'binary' })
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet)
+        
+        // 清理数据中的图片占位符
+        const cleanedData = jsonData.map((item: any) => {
+          const cleanedItem: any = {}
+          
+          // 清理所有字段
+          for (const key in item) {
+            let value = item[key]
+            
+            // 处理 DISPIMG 格式
+            if (typeof value === 'string' && value.includes('=DISPIMG(')) {
+              value = ''
+            }
+            
+            cleanedItem[key] = value
+          }
+          
+          return cleanedItem
+        })
+        
+        resolve(cleanedData)
+      } catch (error) {
+        reject(error)
+      }
+    }
+    reader.onerror = (error) => {
+      reject(error)
+    }
+    reader.readAsBinaryString(file)
+  })
+}
+
+// 导入Excel文件
+const importExcel = async () => {
+  if (!excelFile.value) {
+    ElMessage.warning('请先选择Excel文件')
+    return
+  }
+  
+  importLoading.value = true
+  
+  try {
+    // 解析Excel文件
+    const categories = await parseExcelFile(excelFile.value)
+    
+    if (categories.length === 0) {
+      ElMessage.warning('Excel文件中没有数据')
+      return
+    }
+    
+    // 调用API添加分类
+    const successCount = await addCategories(categories)
+    
+    ElMessage.success(`成功导入 ${successCount} 个分类`)
+    showImportDialog.value = false
+    excelFile.value = null
+    excelFileList.value = []
+    loadCategories() // 重新加载分类列表
+  } catch (error) {
+    ElMessage.error('导入Excel失败，请检查文件格式')
+  } finally {
+    importLoading.value = false
+  }
+}
+
+// 添加分类到数据库
+const addCategories = async (categories: any[]): Promise<number> => {
+  let successCount = 0
+  
+  for (const category of categories) {
+    try {
+      // 检查分类数据完整性
+      const categoryName = category.category || category.分类名称 || category.name || category.分类 || ''
+      if (!categoryName) {
+        continue
+      }
+      
+      // 构建分类数据结构
+      const categoryData = {
+        name: categoryName,
+        icon: category.image || category.图片 || '',
+        sort: category.sort || 0
+      }
+      
+      // 调用分类添加API
+      await axios.post(`${API_BASE}/categories`, categoryData)
+      successCount++
+    } catch (error) {
+      // 继续处理下一个分类
+    }
+  }
+  
+  return successCount
+}
+
 onMounted(() => {
   loadCategories()
 })
@@ -425,6 +605,27 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: 20px;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+/* Excel导入相关样式 */
+.import-dialog-content {
+  padding: 20px 0;
+}
+
+.import-hint {
+  color: #606266;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.upload-excel {
   margin-bottom: 20px;
 }
 

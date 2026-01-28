@@ -20,6 +20,10 @@
               卡片
             </el-button>
           </el-button-group>
+          <el-button type="warning" @click="showImportDialog = true">
+            <el-icon><Upload /></el-icon>
+            导入Excel
+          </el-button>
           <el-button type="primary" @click="handleAdd">
             <el-icon><Plus /></el-icon>
             新增商品
@@ -293,14 +297,52 @@
         <el-button type="primary" @click="handleSubmit" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- Excel导入对话框 -->
+    <el-dialog
+      v-model="showImportDialog"
+      title="导入Excel添加产品"
+      width="500px"
+      destroy-on-close
+    >
+      <div class="import-dialog-content">
+        <p class="import-hint">请上传包含产品信息的Excel文件，支持直接添加新产品</p>
+        <el-upload
+          class="upload-excel"
+          action="#"
+          :auto-upload="false"
+          :on-change="handleExcelFile"
+          accept=".xlsx,.xls"
+          :limit="1"
+          :file-list="excelFileList"
+        >
+          <el-button type="primary">选择Excel文件</el-button>
+          <template #tip>
+            <div class="el-upload__tip">
+              支持 .xlsx 和 .xls 格式的Excel文件
+            </div>
+          </template>
+        </el-upload>
+        <el-button 
+          type="success" 
+          style="margin-top: 20px" 
+          @click="importExcel"
+          :loading="importLoading"
+          :disabled="!excelFile"
+        >
+          开始导入
+        </el-button>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { Search, Plus, MagicStick, Grid, List } from '@element-plus/icons-vue'
+import { Search, Plus, Upload, MagicStick, Grid, List } from '@element-plus/icons-vue'
 import axios from 'axios'
+import * as XLSX from 'xlsx'
 
 const API_BASE = '/api'  // 使用相对路径，通过Vite代理转发
 
@@ -483,6 +525,12 @@ const dialogTitle = ref('新增商品')
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
 
+// Excel导入相关
+const showImportDialog = ref(false)
+const excelFile = ref<File | null>(null)
+const excelFileList = ref<any[]>([])
+const importLoading = ref(false)
+
 const formData = reactive({
   id: null,
   name: '',
@@ -512,7 +560,27 @@ const rules = {
 // 加载商品列表
 const getImageUrl = (imageUrl: string) => {
   if (!imageUrl) return ''
-  return imageUrl.startsWith('http') ? imageUrl : imageUrl
+  
+  // 检查是否为空或无效
+  if (!imageUrl || imageUrl.trim() === '') {
+    return ''
+  }
+  
+  // 处理 DISPIMG 格式的特殊 URL
+  if (imageUrl.includes('=DISPIMG(')) {
+    return ''
+  }
+  
+  if (imageUrl.startsWith('http')) {
+    return imageUrl
+  }
+  // 处理相对路径，确保图片能正确加载
+  if (imageUrl.startsWith('/')) {
+    // 绝对路径，使用后端服务器地址
+    return `http://localhost:3003${imageUrl}`
+  }
+  // 相对路径，使用后端服务器的uploads目录
+  return `http://localhost:3003/uploads/${imageUrl}`
 }
 
 const loadProducts = async () => {
@@ -848,6 +916,150 @@ const beforeImageUpload = (file: File) => {
   return true
 }
 
+// 处理Excel文件选择
+const handleExcelFile = (file: any) => {
+  excelFile.value = file.raw
+  excelFileList.value = [file]
+}
+
+// 解析Excel文件
+const parseExcelFile = (file: File): Promise<any[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result
+        const workbook = XLSX.read(data, { type: 'binary' })
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        const jsonData = XLSX.utils.sheet_to_json(worksheet)
+        
+        // 清理数据中的图片占位符
+        const cleanedData = jsonData.map((item: any) => {
+          const cleanedItem: any = {}
+          
+          // 清理所有字段
+          for (const key in item) {
+            let value = item[key]
+            
+            // 处理 DISPIMG 格式
+            if (typeof value === 'string' && value.includes('=DISPIMG(')) {
+              value = ''
+            }
+            
+            cleanedItem[key] = value
+          }
+          
+          return cleanedItem
+        })
+        
+        resolve(cleanedData)
+      } catch (error) {
+        console.error('解析Excel文件失败:', error)
+        reject(error)
+      }
+    }
+    reader.onerror = (error) => {
+      console.error('读取Excel文件失败:', error)
+      reject(error)
+    }
+    reader.readAsBinaryString(file)
+  })
+}
+
+// 导入Excel文件
+const importExcel = async () => {
+  if (!excelFile.value) {
+    ElMessage.warning('请先选择Excel文件')
+    return
+  }
+  
+  // 确保分类数据已加载
+  if (categories.value.length === 0) {
+    await loadCategories()
+    // 检查分类数据是否加载成功
+    if (categories.value.length === 0) {
+      ElMessage.warning('分类数据加载失败，请刷新页面重试')
+      return
+    }
+  }
+  
+  importLoading.value = true
+  
+  try {
+    // 解析Excel文件
+    const products = await parseExcelFile(excelFile.value)
+    
+    if (products.length === 0) {
+      ElMessage.warning('Excel文件中没有数据')
+      return
+    }
+    
+    // 调用API添加产品
+    const successCount = await addProducts(products)
+    
+    ElMessage.success(`成功导入 ${successCount} 个产品`)
+    showImportDialog.value = false
+    excelFile.value = null
+    excelFileList.value = []
+    loadProducts() // 重新加载商品列表
+  } catch (error) {
+    ElMessage.error('导入Excel失败，请检查文件格式')
+  } finally {
+    importLoading.value = false
+  }
+}
+
+// 添加产品到数据库
+const addProducts = async (products: any[]): Promise<number> => {
+  let successCount = 0
+  
+  // 构建分类名称到ID的映射，忽略大小写
+  const categoryMap: Record<string, number> = {}
+  categories.value.forEach((cat: any) => {
+    categoryMap[cat.name.toLowerCase()] = cat.id
+  })
+  
+  for (const product of products) {
+    try {
+      // 检查产品数据完整性
+      const productName = product.name || product.商品名称 || ''
+      if (!productName) {
+        continue
+      }
+      
+      // 获取分类ID
+      let categoryId = 1 // 默认分类ID
+      const categoryName = product.category || product.分类 || ''
+      if (categoryName) {
+        const lowerCategoryName = categoryName.toLowerCase()
+        if (categoryMap[lowerCategoryName]) {
+          categoryId = categoryMap[lowerCategoryName]
+        }
+      }
+      
+      // 构建产品数据结构
+      const productData = {
+        name: productName,
+        price: parseFloat(product.price || product.价格 || '0'),
+        category_id: categoryId,
+        description: product.description || product.描述 || '',
+        image: product.image || product.图片 || '',
+        stock: parseInt(product.stock || product.库存 || '0'),
+        status: product.status || 1
+      }
+      
+      // 调用产品添加API
+      await axios.post(`${API_BASE}/products`, productData)
+      successCount++
+    } catch (error) {
+      // 继续处理下一个产品
+    }
+  }
+  
+  return successCount
+}
+
 onMounted(() => {
   loadProducts()
   loadCategories()
@@ -1009,5 +1221,20 @@ h3 {
   width: 148px;
   height: 148px;
   display: block;
+}
+
+/* Excel导入相关样式 */
+.import-dialog-content {
+  padding: 20px 0;
+}
+
+.import-hint {
+  color: #606266;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.upload-excel {
+  margin-bottom: 20px;
 }
 </style>

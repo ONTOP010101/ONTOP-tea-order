@@ -14,19 +14,7 @@ export class ProductService {
   private transformProduct(product: any) {
     if (!product) return product;
     
-    // 处理图片字段，确保前端能正确获取图片数据
-    let productImages = product.images;
-    
-    // 如果images字段不存在或为空，尝试使用image字段创建数组
-    if (!productImages || productImages.length === 0) {
-      if (product.image) {
-        productImages = [product.image];
-      } else {
-        productImages = [];
-      }
-    }
-    
-    // 确保图片路径为相对路径，去除完整URL前缀
+    // 处理图片字段，确保图片路径为相对路径，去除完整URL前缀
     const normalizeImagePath = (path: string) => {
       if (path && typeof path === 'string') {
         // 如果是完整URL，提取相对路径部分
@@ -38,6 +26,16 @@ export class ProductService {
       }
       return path;
     };
+    
+    // 处理图片数组
+    let productImages = product.images;
+    if (!productImages || productImages.length === 0) {
+      if (product.image) {
+        productImages = [product.image];
+      } else {
+        productImages = [];
+      }
+    }
     
     return {
       ...product,
@@ -195,11 +193,31 @@ export class ProductService {
     return this.addHasSpecsToProducts(list);
   }
 
+  // 查找最小的可用ID
+  private async findNextAvailableId(): Promise<number> {
+    // 获取所有现有ID
+    const products = await this.productRepository.find({ select: ['id'] });
+    const ids = products.map(product => product.id).sort((a, b) => a - b);
+    
+    // 查找第一个缺失的ID
+    for (let i = 1; i <= ids.length + 1; i++) {
+      if (!ids.includes(i)) {
+        return i;
+      }
+    }
+    
+    // 如果所有ID都连续，返回最大ID+1
+    return ids.length > 0 ? Math.max(...ids) + 1 : 1;
+  }
+
   async create(data: Partial<Product>) {
     // 确保必填字段存在
     if (!data.name || !data.category_id) {
       throw new Error('商品名称和分类ID是必填项');
     }
+
+    // 查找可用ID
+    const nextId = await this.findNextAvailableId();
 
     // 处理images字段
     if (data.images && typeof data.images === 'string') {
@@ -212,6 +230,7 @@ export class ProductService {
 
     const product = this.productRepository.create({
       ...data,
+      id: nextId,
       status: data.status !== undefined ? Number(data.status) : 1,
       stock: data.stock !== undefined ? Number(data.stock) : 0,
       price: data.price !== undefined ? Number(data.price) : 0,
@@ -283,7 +302,12 @@ export class ProductService {
   }
 
   async batchCreate(dataList: Partial<Product>[]) {
-    const products = dataList.map(data => {
+    const products = [];
+    
+    for (const data of dataList) {
+      // 查找可用ID
+      const nextId = await this.findNextAvailableId();
+      
       // 处理images字段
       if (data.images && typeof data.images === 'string') {
         try {
@@ -293,15 +317,16 @@ export class ProductService {
         }
       }
 
-      return this.productRepository.create({
+      products.push(this.productRepository.create({
         ...data,
+        id: nextId,
         status: data.status !== undefined ? Number(data.status) : 1,
         stock: data.stock !== undefined ? Number(data.stock) : 0,
         price: data.price !== undefined ? Number(data.price) : 0,
         sort: data.sort !== undefined ? Number(data.sort) : 0,
         sales: 0
-      });
-    });
+      }));
+    }
 
     return await this.productRepository.save(products);
   }
