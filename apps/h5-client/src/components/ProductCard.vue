@@ -104,21 +104,22 @@ const addToCart = (e: Event) => {
   // 触发动画事件
   emit('add-to-cart', x, y, props.product)
   
-  // 直接从产品的images数组中获取第一张图片URL，不使用getImageUrl（避免获取到base64占位符）
+  // 使用 getImageUrl 函数处理图片路径
   let imageUrl = ''
-  if (props.product.images && props.product.images.length > 0) {
-    const firstImage = props.product.images[0]
-    if (firstImage && firstImage.trim() !== '') {
-      if (firstImage.startsWith('/uploads/')) {
-        imageUrl = firstImage
-      } else if (firstImage.startsWith('uploads/')) {
-        imageUrl = `/${firstImage}`
-      } else if (firstImage.startsWith('/')) {
-        imageUrl = firstImage
-      } else {
-        imageUrl = `/uploads/${firstImage}`
-      }
-    }
+  
+  // 优先使用product.image字段
+  if (props.product.image && typeof props.product.image === 'string' && props.product.image.trim() !== '') {
+    imageUrl = getImageUrl(props.product.image)
+  } 
+  // 处理images字段（可能是数组、对象或字符串）
+  else if (props.product.images) {
+    imageUrl = getImageUrl(props.product.images)
+  }
+  
+  // 测试：如果没有图片，使用默认图片
+  if (!imageUrl) {
+    // 使用一个占位图片，确保动画中能看到图片
+    imageUrl = 'https://via.placeholder.com/60x60/ff6b6b/ffffff?text=+'
   }
   
   cartStore.addItem({

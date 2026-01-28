@@ -24,7 +24,7 @@
           :style="{
             left: `${item.x}px`,
             top: `${item.y}px`,
-            backgroundImage: `url(${item.image})`
+            backgroundImage: item.image ? `url('${item.image}')` : 'none'
           }"
         ></div>
       </div>
@@ -73,7 +73,6 @@
                 <!-- 商品图片 -->
                 <div class="product-image" @click="goToProductDetail(product)">
                   <van-image
-                    v-if="(product.image || product.images)"
                     :src="getImageUrl(product.image || product.images)"
                     :alt="product.name"
                     fit="cover"
@@ -81,7 +80,6 @@
                     :placeholder="'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNmNWY1ZjUiLz48cGF0aCBkPSJNMCAwIDgwIDgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+'"
                     @error="handleImageError"
                   />
-                  <div v-else class="product-image-placeholder">{{ $t('product.noImage') }}</div>
                   <!-- 售罄标识 -->
                   <div v-if="product.stock <= 0" class="sold-out-tag">{{ $t('product.soldOut') }}</div>
                 </div>
@@ -344,31 +342,47 @@ const cartCount = computed(() => {
 
 // 获取图片URL，确保路径正确
 const getImageUrl = (image: any) => {
-  if (!image) return ''
+  // 打印传入的图片数据，以便调试
+  console.log('getImageUrl called with:', image)
+  
+  if (!image) {
+    console.log('No image provided, returning placeholder')
+    // 如果没有图片，返回SVG占位符
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+  }
   
   // 如果是字符串，直接处理
   if (typeof image === 'string' && image.trim() !== '') {
+    console.log('Processing string image:', image)
     // 如果是完整URL直接使用，否则确保是正确的相对路径
     if (image.startsWith('http')) {
+      console.log('Returning full URL:', image)
       return image
     }
     // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
     if (image.startsWith('/uploads/')) {
+      console.log('Returning uploads path:', image)
       return image
     }
     if (image.startsWith('uploads/')) {
-      return `/${image}`
+      const path = `/${image}`
+      console.log('Returning normalized uploads path:', path)
+      return path
     }
-    return `/uploads/${image}`
+    const path = `/uploads/${image}`
+    console.log('Returning constructed uploads path:', path)
+    return path
   }
   
   // 如果是数组，使用第一个元素
   if (Array.isArray(image) && image.length > 0) {
+    console.log('Processing array image:', image)
     return getImageUrl(image[0])
   }
   
   // 如果是对象，尝试获取其中的图片路径
   if (typeof image === 'object') {
+    console.log('Processing object image:', image)
     // 尝试获取第一个属性值
     const firstValue = Object.values(image)[0]
     if (firstValue) {
@@ -376,7 +390,9 @@ const getImageUrl = (image: any) => {
     }
   }
   
-  return ''
+  console.log('All attempts failed, returning placeholder')
+  // 如果所有尝试都失败，返回SVG占位符
+  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
 }
 
 // 图片加载失败处理
@@ -415,12 +431,12 @@ const createAddToCartAnimation = (x: number, y: number, product: Product) => {
   // 创建唯一ID
   const id = `${product.id}-${Date.now()}`
   
-  // 获取产品图片
+  // 获取产品图片，使用项目中已有的getImageUrl函数处理路径
   let imageUrl = ''
   
   // 优先使用product.image字段
   if (product?.image && typeof product.image === 'string' && product.image.trim() !== '') {
-    imageUrl = product.image
+    imageUrl = getImageUrl(product.image)
   } 
   // 处理images字段（可能是数组、对象或字符串）
   else if (product?.images) {
@@ -438,17 +454,14 @@ const createAddToCartAnimation = (x: number, y: number, product: Product) => {
     }
     
     if (firstImage && typeof firstImage === 'string' && firstImage.trim() !== '') {
-      imageUrl = firstImage
+      imageUrl = getImageUrl(firstImage)
     }
   }
   
-  // 确保图片路径格式正确
-  if (imageUrl) {
-    imageUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`
-    // 如果是相对路径，使用当前页面的协议和主机
-    if (!imageUrl.startsWith('http')) {
-      imageUrl = `${window.location.origin}${imageUrl}`
-    }
+  // 测试：如果没有图片，使用默认图片
+  if (!imageUrl) {
+    // 使用一个占位图片，确保动画中能看到图片
+    imageUrl = 'https://via.placeholder.com/60x60/ff6b6b/ffffff?text=+'
   }
   
   // 创建动画元素对象
@@ -518,7 +531,7 @@ const updateCartItem = (product: Product, quantity: number) => {
         id: `${product.id}-${Date.now()}`,
         productId: product.id,
         name: getProductName(product),
-        image: product.images?.[0] || '',
+        image: getImageUrl(product.image || product.images),
         price: typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0,
         quantity: quantity,
         selected: true,
@@ -597,6 +610,8 @@ const loadProducts = async (categoryId: number, append: boolean = false) => {
       }
       
       const data = await getProductsByCategory(categoryId)
+      // 打印产品数据，查看实际的图片路径结构
+      console.log('Product data:', data)
       // 添加分类标记
       const productsWithCategory = data.map(product => ({
         ...product,
@@ -927,21 +942,44 @@ onUnmounted(() => {
   width: 90px;
   background-color: #ffffff;
   border-right: 1px solid #e0e0e0;
-  overflow: hidden;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   height: 100%;
   align-items: stretch;
+  padding-left: 5px;
+  
+  /* 隐藏滚动条但保留滚动功能 */
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 4px;
+  }
+  
+  &:hover::-webkit-scrollbar-thumb {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
   
   .category-item {
-    padding: 14px 0;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 65px;
+      padding: 14px 0;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 65px;
+      padding-left: 5px;
     
     &:hover {
       background-color: #f8f8f8;
@@ -950,6 +988,11 @@ onUnmounted(() => {
     &.active {
       background-color: #ee0a24;
       box-shadow: none;
+      /* 确保激活状态的分类项完全填满容器宽度，消除右侧白色缝隙 */
+      width: calc(100% - 10px); /* 调整宽度以适应居中显示 */
+      position: relative;
+      left: 5px; /* 居中显示 */
+      z-index: 1;
     }
     
     .category-name {
@@ -963,12 +1006,16 @@ onUnmounted(() => {
       white-space: normal;
       height: auto;
       overflow: hidden;
+      text-align: center;
     }
     
     &.active .category-name {
       color: #ffffff;
       font-weight: bold;
       font-size: clamp(14px, 4.2vw, 17px); /* 增大激活状态字体大小 */
+      text-align: center;
+      margin: 0 auto;
+      padding: 0 12px;
     }
   }
 }
@@ -1358,7 +1405,6 @@ onUnmounted(() => {
   position: absolute;
   width: 60px;
   height: 60px;
-  background-color: #ff6b6b;
   border-radius: 50%;
   z-index: 999999;
   opacity: 1;
@@ -1373,13 +1419,17 @@ onUnmounted(() => {
   /* 添加背景图片居中显示 */
   background-size: cover;
   background-position: center;
+  /* 添加背景颜色作为 fallback，确保即使没有图片也能看到 */
+  background-color: #ff6b6b;
 }
 
 @keyframes addToCart {
   0% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
-    background-color: #ff6b6b;
+    /* 保留背景图片设置 */
+    background-size: cover;
+    background-position: center;
   }
   100% {
     opacity: 0;
@@ -1388,7 +1438,9 @@ onUnmounted(() => {
     /* 购物车图标位于底部已选择商品区域左侧 */
     left: 30px;
     top: calc(100vh - 45px);
-    background-color: #ffeaa7;
+    /* 保留背景图片设置 */
+    background-size: cover;
+    background-position: center;
   }
 }
 

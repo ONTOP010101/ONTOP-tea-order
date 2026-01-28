@@ -77,8 +77,15 @@ const getImageUrl = (image: string) => {
   if (image.startsWith('http')) {
     return image
   }
-  // 确保路径以/开头，通过Vite的/uploads代理访问
-  return image.startsWith('/') ? image : `/${image}`
+  // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
+  if (image.startsWith('/uploads/')) {
+    return image
+  }
+  if (image.startsWith('uploads/')) {
+    return `/${image}`
+  }
+  // 如果是相对路径，添加/uploads/前缀
+  return `/uploads/${image}`
 }
 
 // 图片加载失败处理

@@ -2,6 +2,20 @@
   <div class="product-detail-page">
     <van-nav-bar :title="$t('product.detail')" left-arrow @click-left="$router.back()" />
 
+    <!-- 加入购物车动画容器 -->
+    <div class="addToCartAnimationContainer">
+      <div
+        v-for="item in animationItems"
+        :key="item.id"
+        class="addToCartAnimation"
+        :style="{
+          left: `${item.x}px`,
+          top: `${item.y}px`,
+          backgroundImage: item.image ? `url('${item.image}')` : 'none'
+        }"
+      ></div>
+    </div>
+
     <van-loading v-if="loading" class="loading-container" />
 
     <template v-else-if="product">
@@ -102,7 +116,7 @@
             <button 
               v-else
               class="save-edit-btn" 
-              @click="addToCart"
+              @click="(e) => addToCart(e)"
             >
               修改保存
             </button>
@@ -117,7 +131,7 @@
             <template v-else>
               <button 
                 class="add-to-cart-btn" 
-                @click="addToCart"
+                @click="(e) => addToCart(e)"
               >
                 {{ $t('product.addToCart') }}
               </button>
@@ -157,6 +171,9 @@ const specGroups = ref<any[]>([])
 const specSelections = ref<Record<number, number[]>>({})
 const loadingSpecs = ref(false)
 const quantity = ref(1)
+
+// 动画相关
+const animationItems = ref<Array<{id: string, x: number, y: number, image: string}>>([])
 
 // 编辑模式相关
 // 从路由参数获取编辑模式状态
@@ -467,6 +484,47 @@ const hasSelectedSpecs = computed(() => {
   return false
 })
 
+// 获取图片URL，确保路径正确
+const getImageUrl = (image: any) => {
+  if (!image) {
+    // 如果没有图片，返回SVG占位符
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+  }
+  
+  // 如果是字符串，直接处理
+  if (typeof image === 'string' && image.trim() !== '') {
+    // 如果是完整URL直接使用，否则确保是正确的相对路径
+    if (image.startsWith('http')) {
+      return image
+    }
+    // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
+    if (image.startsWith('/uploads/')) {
+      return image
+    }
+    if (image.startsWith('uploads/')) {
+      return `/${image}`
+    }
+    return `/uploads/${image}`
+  }
+  
+  // 如果是数组，使用第一个元素
+  if (Array.isArray(image) && image.length > 0) {
+    return getImageUrl(image[0])
+  }
+  
+  // 如果是对象，尝试获取其中的图片路径
+  if (typeof image === 'object') {
+    // 尝试获取第一个属性值
+    const firstValue = Object.values(image)[0]
+    if (firstValue) {
+      return getImageUrl(firstValue)
+    }
+  }
+  
+  // 如果所有尝试都失败，返回SVG占位符
+  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+}
+
 // 计算商品总价
 const totalPrice = computed(() => {
   if (!product.value) return 0
@@ -485,7 +543,7 @@ const totalPrice = computed(() => {
   return formatPrice(price)
 })
 
-const addToCart = () => {
+const addToCart = (e?: Event) => {
   if (!product.value) return
   if (product.value.stock <= 0) {
     showToast(t('product.soldOut'))
@@ -497,13 +555,24 @@ const addToCart = () => {
     return
   }
   
-  // 直接从产品的images数组中获取第一张图片URL
+  // 触发加入购物车动画
+  if (e) {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+    const x = rect.left + rect.width / 2
+    const y = rect.top + rect.height / 2
+    createAddToCartAnimation(x, y, product.value)
+  }
+  
+  // 获取产品图片，使用项目中已有的图片路径处理逻辑
   let imageUrl = ''
-  if (product.value.images && product.value.images.length > 0) {
-    const firstImage = Array.isArray(product.value?.images) && product.value.images.length > 0 ? product.value.images[0] : ''
-    if (firstImage && firstImage.trim() !== '') {
-      imageUrl = firstImage.startsWith('/') ? firstImage : `/${firstImage}`
-    }
+  
+  // 优先使用product.image字段
+  if (product.value?.image && typeof product.value.image === 'string' && product.value.image.trim() !== '') {
+    imageUrl = getImageUrl(product.value.image)
+  } 
+  // 处理images字段（可能是数组、对象或字符串）
+  else if (product.value?.images) {
+    imageUrl = getImageUrl(product.value.images)
   }
   
   // 构建规格文本和值
@@ -552,6 +621,45 @@ const getSpecText = () => {
     }
   }
   return text.trim().replace(/;$/, '')
+}
+
+const createAddToCartAnimation = (x: number, y: number, product: Product) => {
+  // 创建唯一ID
+  const id = `${product.id}-${Date.now()}`
+  
+  // 获取产品图片，使用项目中已有的getImageUrl函数处理路径
+  let imageUrl = ''
+  
+  // 优先使用product.image字段
+  if (product?.image && typeof product.image === 'string' && product.image.trim() !== '') {
+    imageUrl = getImageUrl(product.image)
+  } 
+  // 处理images字段（可能是数组、对象或字符串）
+  else if (product?.images) {
+    imageUrl = getImageUrl(product.images)
+  }
+  
+  // 测试：如果没有图片，使用默认图片
+  if (!imageUrl) {
+    // 使用一个占位图片，确保动画中能看到图片
+    imageUrl = 'https://via.placeholder.com/60x60/ff6b6b/ffffff?text=+'
+  }
+  
+  // 创建动画元素对象
+  const animationItem = {
+    id,
+    x,
+    y,
+    image: imageUrl
+  }
+  
+  // 添加动画项
+  animationItems.value.push(animationItem)
+  
+  // 1秒后移除动画项（与CSS动画时长匹配）
+  setTimeout(() => {
+    animationItems.value = animationItems.value.filter(item => item.id !== id)
+  }, 1000)
 }
 
 const buyNow = () => {
@@ -1043,6 +1151,60 @@ watch(
         padding: 0;
       }
     }
+  }
+}
+
+/* 加入购物车动画样式 */
+.addToCartAnimationContainer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+}
+
+.addToCartAnimation {
+  position: absolute;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  z-index: 999999;
+  opacity: 1;
+  pointer-events: none;
+  animation: addToCart 1s ease-out forwards;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6);
+  border: 3px solid white;
+  /* 确保动画能被看到 */
+  visibility: visible !important;
+  /* 初始位置：加号按钮正中心 */
+  transform: translate(-50%, -50%) scale(1);
+  /* 添加背景图片居中显示 */
+  background-size: cover;
+  background-position: center;
+  /* 添加背景颜色作为 fallback，确保即使没有图片也能看到 */
+  background-color: #ff6b6b;
+}
+
+@keyframes addToCart {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+    /* 保留背景图片设置 */
+    background-size: cover;
+    background-position: center;
+  }
+  100% {
+    opacity: 0;
+    /* 直接移动到底部已选择商品区域的购物车图标位置 */
+    transform: translate(-50%, -50%) scale(0.5);
+    /* 购物车图标位于底部已选择商品区域左侧 */
+    left: 30px;
+    top: calc(100vh - 45px);
+    /* 保留背景图片设置 */
+    background-size: cover;
+    background-position: center;
   }
 }
 </style>

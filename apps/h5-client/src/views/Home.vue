@@ -24,7 +24,7 @@
         :style="{
           left: `${item.x}px`,
           top: `${item.y}px`,
-          backgroundImage: `url('${item.image}')`
+          backgroundImage: item.image ? `url('${item.image}')` : 'none'
         }"
       ></div>
     </div>
@@ -198,20 +198,68 @@ const cartCount = computed(() => cartStore.totalCount)
 // 动画相关
 const animationItems = ref<Array<{id: string, x: number, y: number, image: string}>>([])
 
+// 获取图片URL，确保路径正确
+const getImageUrl = (image: any) => {
+  if (!image) {
+    // 如果没有图片，返回SVG占位符
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+  }
+  
+  // 如果是字符串，直接处理
+  if (typeof image === 'string' && image.trim() !== '') {
+    // 如果是完整URL直接使用，否则确保是正确的相对路径
+    if (image.startsWith('http')) {
+      return image
+    }
+    // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
+    if (image.startsWith('/uploads/')) {
+      return image
+    }
+    if (image.startsWith('uploads/')) {
+      return `/${image}`
+    }
+    return `/uploads/${image}`
+  }
+  
+  // 如果是数组，使用第一个元素
+  if (Array.isArray(image) && image.length > 0) {
+    return getImageUrl(image[0])
+  }
+  
+  // 如果是对象，尝试获取其中的图片路径
+  if (typeof image === 'object') {
+    // 尝试获取第一个属性值
+    const firstValue = Object.values(image)[0]
+    if (firstValue) {
+      return getImageUrl(firstValue)
+    }
+  }
+  
+  // 如果所有尝试都失败，返回SVG占位符
+  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+}
+
 // 创建加入购物车动画
 const createAddToCartAnimation = (x: number, y: number, product: Product) => {
   // 创建唯一ID
   const id = `${product.id}-${Date.now()}`
   
-  // 获取产品图片
+  // 获取产品图片，使用项目中已有的图片路径处理逻辑
   let imageUrl = ''
-  if (Array.isArray(product?.images) && product.images.length > 0 && product.images[0] && product.images[0].trim() !== '') {
-    const firstImage = product.images[0]
-    imageUrl = firstImage.startsWith('/') ? firstImage : `/${firstImage}`
-    // 如果是相对路径，使用当前页面的协议和主机
-    if (!imageUrl.startsWith('http')) {
-      imageUrl = `${window.location.origin}${imageUrl}`
-    }
+  
+  // 优先使用product.image字段
+  if (product?.image && typeof product.image === 'string' && product.image.trim() !== '') {
+    imageUrl = getImageUrl(product.image)
+  } 
+  // 处理images字段（可能是数组、对象或字符串）
+  else if (product?.images) {
+    imageUrl = getImageUrl(product.images)
+  }
+  
+  // 测试：如果没有图片，使用默认图片
+  if (!imageUrl) {
+    // 使用一个占位图片，确保动画中能看到图片
+    imageUrl = 'https://via.placeholder.com/60x60/ff6b6b/ffffff?text=+'
   }
   
   // 创建动画元素对象
@@ -424,7 +472,6 @@ onMounted(() => {
   position: absolute;
   width: 60px;
   height: 60px;
-  background-color: #ff6b6b;
   border-radius: 50%;
   z-index: 999999;
   opacity: 1;
@@ -445,7 +492,10 @@ onMounted(() => {
   0% {
     opacity: 1;
     transform: translate(-50%, -50%) scale(1);
-    background-color: #ff6b6b;
+    /* 移除背景颜色，确保背景图片显示 */
+    /* 保留背景图片设置 */
+    background-size: cover;
+    background-position: center;
   }
   100% {
     opacity: 0;
@@ -453,7 +503,10 @@ onMounted(() => {
     transform: translate(-50%, -50%) scale(0.5);
     left: calc(75vw - 15px);
     top: calc(100vh - 35px);
-    background-color: #ffeaa7;
+    /* 移除背景颜色，确保背景图片显示 */
+    /* 保留背景图片设置 */
+    background-size: cover;
+    background-position: center;
   }
 }
 </style>

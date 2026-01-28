@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 // 配置
-const API_BASE = 'http://localhost:3004/api'; // 后端API地址
+const API_BASE = 'http://localhost:3003/api'; // 后端API地址
 
 // 函数：获取所有商品
 async function getAllProducts() {
@@ -69,14 +69,13 @@ async function deleteNewProducts() {
   });
   
   // 确认删除
-  const readline = require('readline').createInterface({
+  const readline = require('readline');
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
   });
   
-  readline.question('\n💡 请输入要删除的商品ID范围（例如：60-80），或输入"all"删除所有商品，或输入"latest"删除最新添加的10个商品: ', async (answer) => {
-    readline.close();
-    
+  rl.question('\n💡 请输入要删除的商品ID范围（例如：60-80），或输入"all"删除所有商品，或输入"latest"删除最新添加的10个商品: ', async (answer) => {
     let idsToDelete = [];
     
     if (answer.toLowerCase() === 'all') {
@@ -100,20 +99,21 @@ async function deleteNewProducts() {
         console.log(`\n⚠️  准备删除商品 ID: ${id}`);
       } else {
         console.log('❌ 无效的ID');
+        rl.close();
         return;
       }
     }
     
     if (idsToDelete.length === 0) {
       console.log('❌ 没有找到符合条件的商品');
+      rl.close();
       return;
     }
     
     // 二次确认
-    readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    }).question(`\n✅ 确认删除 ${idsToDelete.length} 个商品？(yes/no): `, async (confirm) => {
+    rl.question(`\n✅ 确认删除 ${idsToDelete.length} 个商品？(yes/no): `, async (confirm) => {
+      rl.close();
+      
       if (confirm.toLowerCase() === 'yes') {
         console.log('\n🚀 开始删除商品...');
         

@@ -26,13 +26,13 @@ export default defineConfig({
     port: 3005,  // 与package.json中的端口保持一致
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:3004',  // 使用 IPv4 地址避免 IPv6 连接问题
+        target: 'http://127.0.0.1:3003',  // 使用 IPv4 地址避免 IPv6 连接问题
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path
       },
       '/uploads': {
-        target: 'http://localhost:3004',  // 使用 localhost 地址
+        target: 'http://localhost:3003',  // 使用 localhost 地址
         changeOrigin: true,
         secure: false
       }

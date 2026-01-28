@@ -12,12 +12,12 @@
           <div class="order-header">
             <span>{{ $t('order.number') }}: {{ order.orderNo }}</span>
             <van-tag :type="getStatusType(order.status)">
-              {{ $t(`order.status${capitalize(order.status)}`) }}
+              {{ $t(`order.status${capitalize(order.status === 'preparing' ? 'processing' : order.status)}`) }}
             </van-tag>
           </div>
           <div class="order-items">
             <div v-for="(item, idx) in order.items" :key="idx" class="order-item">
-              <img :src="item.image" :alt="item.name" />
+              <img :src="getImageUrl(item.image)" :alt="item.name" @error="handleImageError" />
               <div class="item-info">
                 <div>{{ item.name }}</div>
                 <!-- 显示规格组 -->
@@ -48,7 +48,7 @@
         <h3>{{ $t('order.share') }}</h3>
         <div class="share-content" v-if="selectedOrder">
           <div v-for="(item, idx) in selectedOrder.items" :key="idx" class="share-item">
-            <img :src="item.image" :alt="item.name" />
+            <img :src="getImageUrl(item.image)" :alt="item.name" @error="handleImageError" />
             <div class="share-item-info">
               <div class="share-item-name">{{ item.name }}</div>
               <!-- 显示规格组 -->
@@ -151,6 +151,7 @@ const getStatusType = (status: string) => {
   const map: any = {
     pending: 'warning',
     processing: 'info',
+    preparing: 'info', // 添加对 preparing 状态的支持
     making: 'primary',
     ready: 'success',
     completed: 'default',
@@ -160,6 +161,37 @@ const getStatusType = (status: string) => {
 }
 
 const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
+
+// 获取图片URL，使用多语言占位图
+const getPlaceholderImage = () => {
+  const text = t('product.noImage')
+  const svg = `<svg width="60" height="60" xmlns="http://www.w3.org/2000/svg"><rect width="60" height="60" fill="#f5f5f5"/><text x="50%" y="50%" font-size="10" fill="#999" text-anchor="middle" dy=".3em">${text}</text></svg>`
+  return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)))
+}
+
+// 获取图片URL，确保路径正确
+const getImageUrl = (image: string) => {
+  if (!image) return getPlaceholderImage()
+  // 如果是完整URL直接使用，否则确保是正确的相对路径
+  if (image.startsWith('http')) {
+    return image
+  }
+  // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
+  if (image.startsWith('/uploads/')) {
+    return image
+  }
+  if (image.startsWith('uploads/')) {
+    return `/${image}`
+  }
+  // 如果是相对路径，添加/uploads/前缀
+  return `/uploads/${image}`
+}
+
+// 图片加载失败处理
+const handleImageError = (e: Event) => {
+  const target = e.target as HTMLImageElement
+  target.src = getPlaceholderImage()
+}
 
 onMounted(() => {
   loadOrders()

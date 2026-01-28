@@ -6,6 +6,7 @@
     
     <div v-else-if="order" class="page-content">
       <div class="order-status card">
+        <h2>{{ $t(`order.status${capitalize(order.status === 'preparing' ? 'processing' : order.status)}`) }}</h2>
         <van-button type="primary" size="mini" @click="showShareDialog" class="share-btn">
           {{ $t('order.share') }}
         </van-button>
@@ -91,8 +92,15 @@ const getImageUrl = (image: string) => {
   if (image.startsWith('http')) {
     return image
   }
-  // 确保路径以/开头，通过Vite的/uploads代理访问
-  return image.startsWith('/') ? image : `/${image}`
+  // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
+  if (image.startsWith('/uploads/')) {
+    return image
+  }
+  if (image.startsWith('uploads/')) {
+    return `/${image}`
+  }
+  // 如果是相对路径，添加/uploads/前缀
+  return `/uploads/${image}`
 }
 
 // 图片加载失败处理
@@ -106,6 +114,14 @@ const loadOrder = async () => {
     loading.value = true
     const id = route.params.id as string
     order.value = await getOrderDetail(id)
+    // 打印订单数据，查看商品图片路径
+    console.log('Order data:', order.value)
+    if (order.value?.items) {
+      console.log('Order items:', order.value.items)
+      order.value.items.forEach((item, index) => {
+        console.log(`Item ${index} image:`, item.image)
+      })
+    }
   } catch (error) {
     console.error(error)
   } finally {
@@ -117,6 +133,7 @@ const getStatusType = (status: string) => {
   const map: any = {
     pending: 'warning',
     processing: 'info',
+    preparing: 'info', // 添加对 preparing 状态的支持
     making: 'primary',
     ready: 'success',
     completed: 'default',

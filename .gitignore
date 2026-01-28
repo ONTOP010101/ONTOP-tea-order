@@ -32,4 +32,4 @@ pnpm-debug.log*
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
+*.sln"apps/server/uploads/" 
