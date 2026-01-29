@@ -75,8 +75,6 @@
         :key="order.id"
         class="order-card"
         :class="order.status"
-        @click="showOrderDetail(order)"
-        style="cursor: pointer;"
       >
         <div class="order-header">
           <div class="order-no">{{ order.order_no }}</div>
@@ -88,6 +86,14 @@
           :key="index"
           class="order-item"
         >
+          <img 
+            :src="getImageUrl(item.image)" 
+            :alt="item.name" 
+            class="item-image"
+            @error="handleImageError"
+            @click="previewImage(item.image, item.name)"
+            style="cursor: zoom-in;"
+          />
           <div class="item-main-info">
             <div class="item-name">{{ item.name }}</div>
             <!-- 显示类别（仅在分类排序时） -->
@@ -140,54 +146,18 @@
       </div>
     </div>
 
-    <!-- 订单详情弹窗 -->
-    <el-dialog
-      v-model="dialogVisible"
-      title="订单详细商品列表"
-      width="600px"
-      destroy-on-close
-    >
-      <div v-if="selectedOrder" class="order-detail">
-        <div class="order-detail-header">
-          <div class="detail-item">
-            <span class="label">订单号：</span>
-            <span class="value">{{ selectedOrder.order_no }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">订单时间：</span>
-            <span class="value">{{ formatDate(selectedOrder.created_at) }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">订单状态：</span>
-            <span class="value">{{ getStatusText(selectedOrder.status) }}</span>
-          </div>
-          <div class="detail-item" v-if="selectedOrder.remark">
-            <span class="label">备注：</span>
-            <span class="value">{{ selectedOrder.remark }}</span>
-          </div>
+    <!-- 图片预览模态框 -->
+    <div v-if="previewVisible" class="image-preview-overlay" @click="closePreview">
+      <div class="image-preview-content" @click.stop>
+        <button class="image-preview-close" @click="closePreview">×</button>
+        <div class="image-preview-header">
+          <h3>{{ previewImageName }}</h3>
         </div>
-        
-        <div class="order-detail-items">
-          <h3>商品列表</h3>
-          <table class="items-table">
-            <thead>
-              <tr>
-                <th>商品名称</th>
-                <th>规格</th>
-                <th>数量</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(item, index) in selectedOrder.items" :key="index">
-                <td>{{ item.name }}</td>
-                <td>{{ item.specs?.text || '-' }}</td>
-                <td>{{ item.quantity }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div class="image-preview-body">
+          <img :src="previewImageUrl" :alt="previewImageName" class="preview-image" />
         </div>
       </div>
-    </el-dialog>
+    </div>
   </div>
 </template>
 
@@ -239,9 +209,10 @@ const currentTime = ref('')
 const selectedStatus = ref('pending')
 const sortBy = ref<string>('default') // default, quantity, category
 
-// 订单详情弹窗
-const dialogVisible = ref(false)
-const selectedOrder = ref<Order | null>(null)
+// 图片预览相关
+const previewVisible = ref(false)
+const previewImageUrl = ref('')
+const previewImageName = ref('')
 
 
 
@@ -275,10 +246,58 @@ const selectStatus = (status: string) => {
   selectedStatus.value = status
 }
 
-// 显示订单详情
-const showOrderDetail = (order: Order) => {
-  selectedOrder.value = order
-  dialogVisible.value = true
+// 获取图片URL，确保路径正确
+const getImageUrl = (image: any) => {
+  if (!image) {
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1ZjUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHY9Ii4zZW0iPuS6hiDlv4Pnsbvluo8L3RleHQ+PC9zdmc+'
+  }
+  if (typeof image === 'string' && image.trim() !== '') {
+    if (image.startsWith('http')) {
+      return image
+    }
+    if (image.startsWith('/uploads/')) {
+      return image
+    }
+    if (image.startsWith('uploads/')) {
+      return `/${image}`
+    }
+    return `/uploads/${image}`
+  }
+  if (Array.isArray(image) && image.length > 0) {
+    return getImageUrl(image[0])
+  }
+  if (typeof image === 'object') {
+    const firstValue = Object.values(image)[0]
+    if (firstValue) {
+      return getImageUrl(firstValue)
+    }
+  }
+  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1ZjUiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIxMCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHY9Ii4zZW0iPuS6hiDlv4Pnsbvluo8L3RleHQ+PC9zdmc+'
+}
+
+// 预览图片
+const previewImage = (image: any, name: string) => {
+  previewImageUrl.value = getImageUrl(image)
+  previewImageName.value = name
+  previewVisible.value = true
+}
+
+// 关闭图片预览
+const closePreview = () => {
+  previewVisible.value = false
+  previewImageUrl.value = ''
+  previewImageName.value = ''
+}
+
+
+
+
+
+// 处理图片加载错误
+const handleImageError = (event: Event) => {
+  const target = event.target as HTMLImageElement
+  target.src = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20width%3D%2240%22%20height%3D%2240%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2040%2040%22%20preserveAspectRatio%3D%22none%22%3E%3Cdefs%3E%3Cstyle%20type%3D%22text%2Fcss%22%3E%23holder_15e85d15619%20text%20%7B%20fill%3A%23999%3Bfont-weight%3Anormal%3Bfont-family%3AHelvetica%2C%20monospace%3Bfont-size%3A20pt%20%7D%20%3C%2Fstyle%3E%3C%2Fdefs%3E%3Cg%20id%3D%22holder_15e85d15619%22%3E%3Crect%20width%3D%2240%22%20height%3D%2240%22%20fill%3D%22%23f5f5f5%22%3E%3C%2Frect%3E%3Cg%3E%3Ctext%20x%3D%2214%22%20y%3D%2225%22%3E%E5%95%86%E5%93%81%E5%9B%BE%E7%89%87%3C%2Ftext%3E%3C%2Fg%3E%3C%2Fg%3E%3C%2Fsvg%3E'
+  target.alt = '商品图片'
 }
 
 // 获取订单状态文本
@@ -987,7 +1006,6 @@ onUnmounted(() => {
 
 .order-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
   padding: 10px 12px;
@@ -999,6 +1017,38 @@ onUnmounted(() => {
 
 .order-item:hover {
   background: #f3f4f6;
+}
+
+.item-image {
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-right: 12px;
+  flex-shrink: 0;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.item-main-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.item-quantity {
+  color: #374151;
+  font-size: 14px;
+  font-weight: 700;
+  background: #fbbf24;
+  color: #78350f;
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-left: auto;
+  white-space: nowrap;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(251, 191, 36, 0.3);
 }
 
 .order-item:last-child {
@@ -1264,5 +1314,136 @@ onUnmounted(() => {
 .items-table td:first-child {
   font-weight: 500;
   color: #303133;
+}
+
+/* 图片预览相关样式 */
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+
+.image-preview-content {
+  background-color: white;
+  border-radius: 12px;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: scaleIn 0.3s ease;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 80vw;
+  max-width: 800px;
+}
+
+.image-preview-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 32px;
+  color: #333;
+  cursor: pointer;
+  z-index: 10;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+}
+
+.image-preview-close:hover {
+  background-color: white;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.image-preview-header {
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background-color: #f9fafb;
+  text-align: center;
+}
+
+.image-preview-header h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.image-preview-body {
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #ffffff;
+  min-height: 400px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.preview-image:hover {
+  transform: scale(1.02);
+}
+
+/* 动画效果 */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .image-preview-content {
+    width: 95vw;
+    max-width: 95vw;
+  }
+  
+  .image-preview-body {
+    padding: 15px;
+    min-height: 300px;
+  }
+  
+  .preview-image {
+    max-height: 50vh;
+  }
 }
 </style>
