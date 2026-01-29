@@ -366,7 +366,16 @@ const callTranslationAPI = async (text: string): Promise<{ en: string; ar: strin
   try {
     const response = await axios.post(`${API_BASE}/translation/translate`, { text })
     if (response.data.code === 200) {
-      return response.data.data
+      const data = response.data.data
+      // 处理后端返回的格式：{ original, en, ar, es, pt }
+      if (data.en && data.ar && data.es && data.pt) {
+        return {
+          en: data.en,
+          ar: data.ar,
+          es: data.es,
+          pt: data.pt
+        }
+      }
     }
     throw new Error(response.data.message || '翻译失败')
   } catch (error) {

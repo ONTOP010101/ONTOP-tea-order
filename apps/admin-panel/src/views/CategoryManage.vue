@@ -191,18 +191,90 @@ const excelFile = ref<File | null>(null)
 const excelFileList = ref<any[]>([])
 const importLoading = ref(false)
 
+// 调用翻译映射表
+const translationMap: Record<string, { en: string; ar: string; es: string; pt: string }> = {
+  // 基础词汇
+  '苹果': { en: 'Apple', ar: 'تفاح', es: 'Manzana', pt: 'Maçã' },
+  '香蕉': { en: 'Banana', ar: 'موز', es: 'Plátano', pt: 'Banana' },
+  '橙子': { en: 'Orange', ar: 'برتقال', es: 'Naranja', pt: 'Laranja' },
+  '咖啡': { en: 'Coffee', ar: 'قهوة', es: 'Café', pt: 'Café' },
+  '茶': { en: 'Tea', ar: 'شاي', es: 'Té', pt: 'Chá' },
+  '奶茶': { en: 'Milk Tea', ar: 'شاي بالحليب', es: 'Té con leche', pt: 'Chá com leite' },
+  '蛋糕': { en: 'Cake', ar: 'كعكة', es: 'Pastel', pt: 'Bolo' },
+  '新鲜': { en: 'Fresh', ar: 'طازج', es: 'Fresco', pt: 'Fresco' },
+  '美味': { en: 'Delicious', ar: 'لذيذ', es: 'Delicioso', pt: 'Delicioso' },
+  '经典': { en: 'Classic', ar: 'كلاسيكي', es: 'Clásico', pt: 'Clássico' },
+  '特制': { en: 'Special', ar: 'خاص', es: 'Especial', pt: 'Especial' },
+  '推荐': { en: 'Recommended', ar: 'موصى به', es: 'Recomendado', pt: 'Recomendado' }
+}
+
+// 智能翻译函数
+const intelligentTranslate = (text: string): { en: string; ar: string; es: string; pt: string } => {
+  if (!text || !text.trim()) {
+    return { en: '', ar: '', es: '', pt: '' }
+  }
+
+  const cleanText = text.trim()
+
+  // 1. 优先精确匹配
+  if (translationMap[cleanText]) {
+    return translationMap[cleanText]
+  }
+
+  // 2. 智能分词翻译
+  let enResult = cleanText
+  let arResult = cleanText
+  let esResult = cleanText
+  let ptResult = cleanText
+  
+  // 按长度排序，优先匹配长词汇
+  const sortedKeys = Object.keys(translationMap).sort((a, b) => b.length - a.length)
+  
+  // 尝试替换文本中的已知词汇
+  for (const key of sortedKeys) {
+    if (enResult.includes(key)) {
+      const translation = translationMap[key]
+      enResult = enResult.replace(new RegExp(key, 'g'), translation.en)
+      arResult = arResult.replace(new RegExp(key, 'g'), translation.ar)
+      esResult = esResult.replace(new RegExp(key, 'g'), translation.es)
+      ptResult = ptResult.replace(new RegExp(key, 'g'), translation.pt)
+    }
+  }
+
+  // 3. 如果没有找到任何匹配，返回原文
+  if (enResult === cleanText) {
+    return {
+      en: cleanText,
+      ar: cleanText,
+      es: cleanText,
+      pt: cleanText
+    }
+  }
+
+  return { en: enResult, ar: arResult, es: esResult, pt: ptResult }
+}
+
 // 调用后端翻译API
 const callTranslationAPI = async (text: string): Promise<{ en: string; ar: string; es: string; pt: string }> => {
   try {
     const response = await axios.post(`${API_BASE}/translation/translate`, { text })
     if (response.data.code === 200) {
-      return response.data.data
+      const data = response.data.data
+      // 处理后端返回的格式：{ original, en, ar, es, pt }
+      if (data.en && data.ar && data.es && data.pt) {
+        return {
+          en: data.en,
+          ar: data.ar,
+          es: data.es,
+          pt: data.pt
+        }
+      }
     }
     throw new Error(response.data.message || '翻译失败')
   } catch (error) {
     console.error('调用翻译API失败:', error)
-    // 降级方案：返回空字符串
-    return { en: text, ar: text, es: text, pt: text }
+    // 降级到本地翻译映射表
+    return intelligentTranslate(text)
   }
 }
 

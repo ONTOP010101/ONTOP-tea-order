@@ -11,18 +11,25 @@ export class TranslationController {
    * Body: { text: "苹果" }
    */
   @Post('translate')
-  async translate(@Body('text') text: string) {
+  async translate(@Body() body: any) {
+    const text = body.text;
     if (!text) {
       throw new BadRequestException('请提供要翻译的文本');
     }
 
+    console.log('🔍 [翻译API] 接收到文本:', text);
+    console.log('   文本长度:', text.length);
+    console.log('   文本编码:', Buffer.from(text).toString('hex'));
+
     try {
       const translations = await this.translationService.translateText(text);
+      console.log('✅ [翻译API] 翻译结果:', translations);
       return {
         original: text,
         ...translations,
       };
     } catch (error) {
+      console.error('❌ [翻译API] 翻译失败:', error);
       throw new InternalServerErrorException(`翻译失败: ${error.message}`);
     }
   }

@@ -448,7 +448,16 @@ const callTranslationAPI = async (text: string): Promise<{ en: string; ar: strin
   try {
     const response = await axios.post(`${API_BASE}/translation/translate`, { text })
     if (response.data.code === 200) {
-      return response.data.data
+      const data = response.data.data
+      // 处理后端返回的格式：{ original, en, ar, es, pt }
+      if (data.en && data.ar && data.es && data.pt) {
+        return {
+          en: data.en,
+          ar: data.ar,
+          es: data.es,
+          pt: data.pt
+        }
+      }
     }
     throw new Error(response.data.message || '翻译失败')
   } catch (error) {
@@ -1038,12 +1047,35 @@ const addProducts = async (products: any[]): Promise<number> => {
         }
       }
       
+      // 翻译商品名称和描述
+      let nameTranslations = { en: '', ar: '', es: '', pt: '' }
+      let descriptionTranslations = { en: '', ar: '', es: '', pt: '' }
+      
+      // 翻译商品名称
+      if (productName) {
+        nameTranslations = await callTranslationAPI(productName)
+      }
+      
+      // 翻译商品描述
+      const productDescription = product.description || product.描述 || ''
+      if (productDescription) {
+        descriptionTranslations = await callTranslationAPI(productDescription)
+      }
+      
       // 构建产品数据结构
       const productData = {
         name: productName,
+        name_en: nameTranslations.en,
+        name_ar: nameTranslations.ar,
+        name_es: nameTranslations.es,
+        name_pt: nameTranslations.pt,
         price: parseFloat(product.price || product.价格 || '0'),
         category_id: categoryId,
-        description: product.description || product.描述 || '',
+        description: productDescription,
+        description_en: descriptionTranslations.en,
+        description_ar: descriptionTranslations.ar,
+        description_es: descriptionTranslations.es,
+        description_pt: descriptionTranslations.pt,
         image: product.image || product.图片 || '',
         stock: parseInt(product.stock || product.库存 || '0'),
         status: product.status || 1

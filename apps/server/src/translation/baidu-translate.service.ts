@@ -21,6 +21,10 @@ export class BaiduTranslateService {
     this.secretKey = process.env.BAIDU_TRANSLATE_SECRET_KEY || '';
     
     // 启动时输出配置状态
+    console.log('🔍 [百度翻译] 检查配置...');
+    console.log(`   APP_ID: ${this.appId}`);
+    console.log(`   SECRET_KEY: ${this.secretKey ? '***' : '空'}`);
+    
     if (this.isConfigured()) {
       console.log('✅ [百度翻译] 配置已加载');
       console.log(`   APP_ID: ${this.appId.substring(0, 8)}...`);
