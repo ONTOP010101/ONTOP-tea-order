@@ -103,9 +103,6 @@ export class ProductService {
 
     // 当有搜索关键词时，不进行分类过滤，搜索所有分类
     if (keyword) {
-      if (status !== 'all') {
-        query.where('product.status = :status', { status: status ? Number(status) : 1 });
-      }
       // 搜索所有分类中的商品
       query.andWhere('(product.name LIKE :keyword OR product.name_en LIKE :keyword)', {
         keyword: `%${keyword}%`,
