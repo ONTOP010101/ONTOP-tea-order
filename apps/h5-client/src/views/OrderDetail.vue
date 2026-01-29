@@ -114,14 +114,6 @@ const loadOrder = async () => {
     loading.value = true
     const id = route.params.id as string
     order.value = await getOrderDetail(id)
-    // 打印订单数据，查看商品图片路径
-    console.log('Order data:', order.value)
-    if (order.value?.items) {
-      console.log('Order items:', order.value.items)
-      order.value.items.forEach((item, index) => {
-        console.log(`Item ${index} image:`, item.image)
-      })
-    }
   } catch (error) {
     console.error(error)
   } finally {

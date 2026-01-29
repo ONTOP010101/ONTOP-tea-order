@@ -36,13 +36,10 @@ instance.interceptors.response.use(
     
     // 错误处理
     const message = res.message || '请求失败'
-    console.error('API错误:', message)
     showToast(message)
     return Promise.reject(new Error(message))
   },
   (error: AxiosError) => {
-    console.error('请求错误:', error)
-    console.error('错误响应:', error.response)
     if (error.response?.status === 401) {
       // 401错误不跳转登录，允许匿名用户
       showToast('请求失败')

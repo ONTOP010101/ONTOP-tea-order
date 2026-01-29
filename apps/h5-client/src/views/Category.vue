@@ -32,6 +32,15 @@
       <div class="category-container">
         <!-- 左侧分类列表 -->
         <div class="category-sidebar">
+          <!-- 全部分类选项 -->
+          <div
+            class="category-item"
+            :class="{ 'active': selectedCategoryId === null }"
+            @click="selectAllCategories"
+          >
+            <div class="category-name">全部</div>
+          </div>
+          <!-- 其他分类选项 -->
           <div
             v-for="category in categories"
             :key="category.id"
@@ -252,10 +261,17 @@ const loadingMore = ref(false)
 
 // 过滤后的商品
 const filteredProducts = computed(() => {
+  // 当处于搜索状态时，直接返回搜索结果，不进行额外过滤
+  if (isSearching.value) {
+    return products.value
+  }
+  
+  // 当搜索关键词为空时，返回所有商品
   if (!searchKeyword.value.trim()) {
     return products.value
   }
   
+  // 当不处于搜索状态但有搜索关键词时，进行本地过滤
   const keyword = searchKeyword.value.toLowerCase()
   return products.value.filter(product => {
     const productName = getProductName(product).toLowerCase()
@@ -273,12 +289,15 @@ const handleSearch = async () => {
 // 输入变化处理
 const handleInput = async (value: string) => {
   // 如果搜索关键词为空，恢复显示分类商品
-  if (!value.trim()) {
+  if (!value || typeof value !== 'string' || !value.trim()) {
     isSearching.value = false
     // 重新加载当前分类的商品
     if (selectedCategoryId.value) {
       await loadProducts(selectedCategoryId.value)
     }
+  } else {
+    // 实时搜索：当输入内容不为空时，触发搜索
+    await performSearch()
   }
 }
 
@@ -290,11 +309,33 @@ const performSearch = async () => {
     loading.value = true
     isSearching.value = true
     
-    const response = await searchProducts(searchKeyword.value)
-    products.value = response.list || []
+    // 显式传递categoryId为undefined，确保搜索所有分类
+    const response = await searchProducts(searchKeyword.value, { categoryId: undefined })
+    
+    // 检查response是否存在
+    if (!response) {
+      products.value = []
+      return
+    }
+    
+    // 检查response是否为数组（直接返回商品列表的情况）
+    if (Array.isArray(response)) {
+      // 为搜索结果添加_categoryId属性，确保分类标题能正确显示
+      const productsWithCategory = response.map(product => ({
+        ...product,
+        _categoryId: product.category_id || product.categoryId || product.category?.id || 0
+      }))
+      products.value = productsWithCategory
+      return
+    }
+    
+    // 如果所有检查都失败，则返回空列表
+    products.value = []
   } catch (error) {
-    console.error('搜索商品失败:', error)
     showToast(t('common.error'))
+    // 搜索失败时重置状态
+    isSearching.value = false
+    products.value = []
   } finally {
     loading.value = false
   }
@@ -342,47 +383,36 @@ const cartCount = computed(() => {
 
 // 获取图片URL，确保路径正确
 const getImageUrl = (image: any) => {
-  // 打印传入的图片数据，以便调试
-  console.log('getImageUrl called with:', image)
-  
   if (!image) {
-    console.log('No image provided, returning placeholder')
     // 如果没有图片，返回SVG占位符
     return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
   }
   
   // 如果是字符串，直接处理
   if (typeof image === 'string' && image.trim() !== '') {
-    console.log('Processing string image:', image)
     // 如果是完整URL直接使用，否则确保是正确的相对路径
     if (image.startsWith('http')) {
-      console.log('Returning full URL:', image)
       return image
     }
     // 确保路径以/uploads/开头，通过Vite的/uploads代理访问
     if (image.startsWith('/uploads/')) {
-      console.log('Returning uploads path:', image)
       return image
     }
     if (image.startsWith('uploads/')) {
       const path = `/${image}`
-      console.log('Returning normalized uploads path:', path)
       return path
     }
     const path = `/uploads/${image}`
-    console.log('Returning constructed uploads path:', path)
     return path
   }
   
   // 如果是数组，使用第一个元素
   if (Array.isArray(image) && image.length > 0) {
-    console.log('Processing array image:', image)
     return getImageUrl(image[0])
   }
   
   // 如果是对象，尝试获取其中的图片路径
   if (typeof image === 'object') {
-    console.log('Processing object image:', image)
     // 尝试获取第一个属性值
     const firstValue = Object.values(image)[0]
     if (firstValue) {
@@ -390,7 +420,6 @@ const getImageUrl = (image: any) => {
     }
   }
   
-  console.log('All attempts failed, returning placeholder')
   // 如果所有尝试都失败，返回SVG占位符
   return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
 }
@@ -610,8 +639,6 @@ const loadProducts = async (categoryId: number, append: boolean = false) => {
       }
       
       const data = await getProductsByCategory(categoryId)
-      // 打印产品数据，查看实际的图片路径结构
-      console.log('Product data:', data)
       // 添加分类标记
       const productsWithCategory = data.map(product => ({
         ...product,
@@ -700,6 +727,37 @@ const selectCategory = (category: Category) => {
   }
 }
 
+// 选择所有分类
+const selectAllCategories = async () => {
+  selectedCategoryId.value = null
+  
+  // 重置搜索状态
+  isSearching.value = false
+  searchKeyword.value = ''
+  
+  // 重置无限滚动状态
+  currentCategoryIndex.value = 0
+  loadedCategories.value.clear()
+  isAllCategoriesLoaded.value = false
+  
+  // 加载所有分类的商品
+  products.value = []
+  loading.value = true
+  
+  try {
+    // 遍历所有分类，加载每个分类的商品
+    for (let i = 0; i < categories.value.length; i++) {
+      const category = categories.value[i]
+      await loadProducts(category.id, true)
+    }
+    isAllCategoriesLoaded.value = true
+  } catch (error) {
+    showToast(t('common.error'))
+  } finally {
+    loading.value = false
+  }
+}
+
 // 加载分类
 const loadCategories = async () => {
   try {
@@ -709,9 +767,8 @@ const loadCategories = async () => {
     })
     const data = await getCategories()
     categories.value = data || []
-    if (categories.value.length > 0) {
-      selectCategory(categories.value[0])
-    }
+    // 默认选择全部分类
+    await selectAllCategories()
   } catch (error: any) {
     console.error('加载分类失败:', error)
     showToast(t('category.loadError'))

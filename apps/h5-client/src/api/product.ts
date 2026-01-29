@@ -49,9 +49,24 @@ export const getNewProducts = (limit: number = 10) => {
 }
 
 // 搜索商品
-export const searchProducts = (keyword: string, params?: PaginationParams) => {
-  return request.get<any, PaginationResponse<Product>>('/products/search', { 
-    params: { keyword, ...params } 
+export const searchProducts = (keyword: string, params?: PaginationParams & { categoryId?: number | undefined }) => {
+  // 构建查询参数，确保不会传递undefined的categoryId
+  const queryParams = { keyword }
+  
+  // 只在params存在且categoryId不是undefined时添加categoryId参数
+  if (params) {
+    // 复制其他参数
+    Object.keys(params).forEach(key => {
+      if (key !== 'categoryId' || params[key] !== undefined) {
+        queryParams[key] = params[key]
+      }
+    })
+  }
+  
+  return request.get<any, PaginationResponse<Product>>('/products', { 
+    params: queryParams 
+  }).then(response => {
+    return response.list || []
   })
 }
 

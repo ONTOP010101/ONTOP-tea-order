@@ -101,21 +101,25 @@ export class ProductService {
       query.where('product.status = :status', { status: status ? Number(status) : 1 });
     }
 
-    // 使用实际的分类ID（支持两种参数名）
-    const actualCategoryId = category_id || categoryId;
-    if (actualCategoryId) {
-      if (status !== 'all') {
-        query.andWhere('product.category_id = :category_id', { category_id: Number(actualCategoryId) });
-      } else {
-        query.where('product.category_id = :category_id', { category_id: Number(actualCategoryId) });
-      }
-    }
-
+    // 当有搜索关键词时，不进行分类过滤，搜索所有分类
     if (keyword) {
-      const condition = status !== 'all' ? 'andWhere' : 'where';
-      query[condition]('(product.name LIKE :keyword OR product.name_en LIKE :keyword)', {
+      if (status !== 'all') {
+        query.where('product.status = :status', { status: status ? Number(status) : 1 });
+      }
+      // 搜索所有分类中的商品
+      query.andWhere('(product.name LIKE :keyword OR product.name_en LIKE :keyword)', {
         keyword: `%${keyword}%`,
       });
+    } else {
+      // 当没有搜索关键词时，根据分类ID过滤
+      const actualCategoryId = category_id || categoryId;
+      if (actualCategoryId) {
+        if (status !== 'all') {
+          query.andWhere('product.category_id = :category_id', { category_id: Number(actualCategoryId) });
+        } else {
+          query.where('product.category_id = :category_id', { category_id: Number(actualCategoryId) });
+        }
+      }
     }
 
     const [list, total] = await query

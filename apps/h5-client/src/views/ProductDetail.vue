@@ -299,18 +299,15 @@ const loadProduct = async () => {
     
     // 处理购物车项信息的加载
     if (isEditMode.value && cartItemId.value) {
-      console.log('进入编辑模式，cartItemId:', cartItemId.value)
       // 获取当前购物车项信息，设置初始规格和数量
       const cartItem = cartStore.items.find(item => item.id === cartItemId.value)
       if (cartItem) {
-        console.log('找到购物车项:', cartItem)
         quantity.value = cartItem.quantity
         // 如果有规格信息，尝试恢复规格选择
         if (cartItem.specs && cartItem.specs.selected) {
           specSelections.value = cartItem.specs.selected
         }
       } else {
-        console.error('未找到购物车项:', cartItemId.value)
         // 即使找不到购物车项，也保持编辑模式
         // 这样用户仍然可以看到"修改保存"按钮
       }
@@ -344,8 +341,6 @@ const selectSpecItem = (group: any, item: any) => {
 
 // 获取多语言规格组名称
 const getSpecGroupName = (group: any) => {
-  console.log('getSpecGroupName called with:', { locale: locale.value, group })
-  
   // 辅助函数：检查翻译值是否有效（非空字符串）
   const isTranslationValid = (translation: any) => {
     return typeof translation === 'string' && translation.trim() !== ''
@@ -387,8 +382,6 @@ const getSpecGroupName = (group: any) => {
 
 // 获取多语言规格项值
 const getSpecItemValue = (item: any) => {
-  console.log('getSpecItemValue called with:', { locale: locale.value, item })
-  
   // 辅助函数：检查翻译值是否有效（非空字符串）
   const isTranslationValid = (translation: any) => {
     return typeof translation === 'string' && translation.trim() !== ''
