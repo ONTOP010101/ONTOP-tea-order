@@ -21,8 +21,8 @@ export const getCategoryList = getCategories
 
 // 根据分类ID获取商品
 export const getProductsByCategory = (categoryId: number) => {
-  return request.get<any, PaginationResponse<Product>>(`/products`, { params: { categoryId } }).then(response => {
-    // 响应拦截器返回的是res.data，即 { list: [...], total: 3, page: 1, pageSize: 20 }
+  return request.get<any, PaginationResponse<Product>>(`/products`, { params: { categoryId, pageSize: 1000 } }).then(response => {
+    // 响应拦截器返回的是res.data，即 { list: [...], total: 3, page: 1, pageSize: 1000 }
     // 所以直接返回response.list
     return response?.list || []
   })
@@ -53,7 +53,7 @@ export const getNewProducts = (limit: number = 10) => {
 // 搜索商品
 export const searchProducts = (keyword: string, params?: PaginationParams & { categoryId?: number | undefined }) => {
   // 构建查询参数，确保不会传递undefined的categoryId
-  const queryParams = { keyword }
+  const queryParams = { keyword, pageSize: 1000 }
   
   // 只在params存在且categoryId不是undefined时添加categoryId参数
   if (params) {

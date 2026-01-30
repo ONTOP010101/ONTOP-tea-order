@@ -237,7 +237,7 @@
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { showToast, showLoadingToast, closeToast } from 'vant'
-import { getCategories, getProductsByCategory, searchProducts } from '@/api/product'
+import { getCategories, getProductsByCategory, searchProducts, getProductList } from '@/api/product'
 import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/stores/cart'
 import type { Product, Category } from '@/types'
@@ -318,11 +318,17 @@ const performSearch = async () => {
     
     // 检查response是否为数组（直接返回商品列表的情况）
     if (Array.isArray(response)) {
-      // 为搜索结果添加_categoryId属性，确保分类标题能正确显示
+      // 为搜索结果添加_categoryId属性并按分类ID排序
       const productsWithCategory = response.map(product => ({
         ...product,
         _categoryId: product.category_id || product.categoryId || product.category?.id || 0
-      }))
+      })).sort((a, b) => {
+        // 先按分类ID排序，再按商品ID排序
+        if (a._categoryId !== b._categoryId) {
+          return a._categoryId - b._categoryId
+        }
+        return a.id - b.id
+      })
       products.value = productsWithCategory
       return
     }
@@ -838,13 +844,25 @@ const selectAllCategories = async () => {
   loading.value = true
   
   try {
-    // 遍历所有分类，加载每个分类的商品
-    for (let i = 0; i < categories.value.length; i++) {
-      const category = categories.value[i]
-      await loadProducts(category.id, true)
+    // 直接调用API获取所有商品，不分页
+    const response = await getProductList({ pageSize: 1000 })
+    if (response && response.list) {
+      // 为每个商品添加分类ID并按分类ID排序
+      const allProducts = response.list.map(product => ({
+        ...product,
+        _categoryId: product.category_id || product.category?.id || 0
+      })).sort((a, b) => {
+        // 先按分类ID排序，再按商品ID排序
+        if (a._categoryId !== b._categoryId) {
+          return a._categoryId - b._categoryId
+        }
+        return a.id - b.id
+      })
+      products.value = allProducts
     }
     isAllCategoriesLoaded.value = true
   } catch (error) {
+    console.error('加载所有商品失败:', error)
     showToast(t('common.error'))
   } finally {
     loading.value = false
