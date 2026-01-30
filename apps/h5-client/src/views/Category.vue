@@ -7,7 +7,7 @@
       <div class="search-bar-container">
         <van-search
           v-model="searchKeyword"
-          placeholder="搜索商品"
+          :placeholder="$t('category.searchPlaceholder')"
           @search="handleSearch"
           @input="handleInput"
           @clear="() => handleInput('')"
@@ -38,7 +38,7 @@
             :class="{ 'active': selectedCategoryId === null }"
             @click="selectAllCategories"
           >
-            <div class="category-name">全部</div>
+            <div class="category-name">{{ $t('category.all') }}</div>
           </div>
           <!-- 其他分类选项 -->
           <div
@@ -86,7 +86,6 @@
                     :alt="product.name"
                     fit="cover"
                     lazy
-                    :placeholder="'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNmNWY1ZjUiLz48cGF0aCBkPSJNMCAwIDgwIDgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+'"
                     @error="handleImageError"
                   />
                   <!-- 售罄标识 -->
@@ -178,7 +177,6 @@
                 :alt="item.name"
                 fit="cover"
                 lazy
-                :placeholder="'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTUiIGhlaWdodD0iNTUiIHZpZXdCb3g9IjAgMCA1NSA1NSIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNTUiIGhlaWdodD0iNTUiIGZpbGw9IiNmNWY1ZjUiLz48cGF0aCBkPSJNMCAwIDU1IDU1IiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+'"
                 @error="handleImageError"
               />
               <div v-else class="selected-item-image-placeholder">{{ $t('product.noImage') }}</div>
@@ -186,7 +184,7 @@
             <div class="selected-item-info">
               <div class="selected-item-name">
                 <span class="item-name-text" @click="goToProductDetailById(item.productId)">{{ item.name }}</span>
-                <div class="change-specs-btn" @click="editSpecs(item)">
+                <div v-if="item.specs?.text" class="change-specs-btn" @click="editSpecs(item)">
                   {{ $t('common.edit') }}
                 </div>
               </div>
@@ -444,8 +442,8 @@ const cartCount = computed(() => {
 // 获取图片URL，确保路径正确
 const getImageUrl = (image: any) => {
   if (!image) {
-    // 如果没有图片，返回SVG占位符
-    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+    // 如果没有图片，返回空字符串
+    return ''
   }
   
   // 如果是字符串，直接处理
@@ -480,15 +478,14 @@ const getImageUrl = (image: any) => {
     }
   }
   
-  // 如果所有尝试都失败，返回SVG占位符
-  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjYwIiBoZWlnaHQ9IjYwIiBmaWxsPSIjZjVmNWY1Ii8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTAiIGZpbGw9IiM5OTkiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj7mmoLml6Dlm77niYc8L3RleHQ+PC9zdmc+'
+  // 如果所有尝试都失败，返回空字符串
+  return ''
 }
 
 // 图片加载失败处理
 const handleImageError = (e: Event) => {
   const target = e.target as HTMLImageElement
-  // 设置默认占位图
-  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAiIGhlaWdodD0iODAiIHZpZXdCb3g9IjAgMCA4MCA4MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAiIGhlaWdodD0iODAiIGZpbGw9IiNmNWY1ZjUiLz48cGF0aCBkPSJNMCAwIDgwIDgwIiBmaWxsPSJub25lIiBzdHJva2U9IiNmZmZmZmYiIHN0cm9rZS13aWR0aD0iMiIgZmlsbC1ydWxlPSJldmVub2RkIi8+PC9zdmc+'
+  // 不设置默认占位图，保持空状态
 }
 
 // 添加商品缓存，避免频繁重复请求
@@ -638,36 +635,72 @@ const updateCartItem = (product: Product, quantity: number) => {
 // 获取多语言分类名称
 const getCategoryName = (category: any) => {
   if (!category) return ''
-  if (locale.value === 'en-US' && category.name_en) {
+  
+  console.log('当前语言:', locale.value)
+  console.log('分类数据:', category)
+  console.log('分类名称字段检查:')
+  console.log('  category.name:', category.name)
+  console.log('  category.name_en:', category.name_en)
+  console.log('  category.name_ar:', category.name_ar)
+  console.log('  category.name_es:', category.name_es)
+  console.log('  category.name_pt:', category.name_pt)
+  
+  // 优先使用对应语言的分类名称
+  const lang = locale.value
+  if ((lang === 'en-US' || lang === 'en') && category.name_en) {
+    console.log('使用英语名称:', category.name_en)
     return category.name_en
   }
-  if (locale.value === 'ar-SA' && category.name_ar) {
+  if ((lang === 'ar-SA' || lang === 'ar') && category.name_ar) {
+    console.log('使用阿拉伯语名称:', category.name_ar)
     return category.name_ar
   }
-  if (locale.value === 'es-ES' && category.name_es) {
+  if ((lang === 'es-ES' || lang === 'es') && category.name_es) {
+    console.log('使用西班牙语名称:', category.name_es)
     return category.name_es
   }
-  if (locale.value === 'pt-BR' && category.name_pt) {
+  if ((lang === 'pt-BR' || lang === 'pt') && category.name_pt) {
+    console.log('使用葡萄牙语名称:', category.name_pt)
     return category.name_pt
   }
+  
+  // 如果没有对应语言的分类名称，使用默认名称
+  console.log('使用默认名称:', category.name || '')
   return category.name || ''
 }
 
 // 获取多语言商品名称
 const getProductName = (product: Product) => {
   if (!product) return ''
-  if (locale.value === 'en-US' && product.name_en) {
+  
+  console.log('当前语言:', locale.value)
+  console.log('商品数据:', product)
+  console.log('商品名称字段检查:')
+  console.log('  product.name:', product.name)
+  console.log('  product.name_en:', product.name_en)
+  console.log('  product.name_ar:', product.name_ar)
+  console.log('  product.name_es:', product.name_es)
+  console.log('  product.name_pt:', product.name_pt)
+  
+  const lang = locale.value
+  if ((lang === 'en-US' || lang === 'en') && product.name_en) {
+    console.log('使用英语商品名称:', product.name_en)
     return product.name_en
   }
-  if (locale.value === 'ar-SA' && product.name_ar) {
+  if ((lang === 'ar-SA' || lang === 'ar') && product.name_ar) {
+    console.log('使用阿拉伯语商品名称:', product.name_ar)
     return product.name_ar
   }
-  if (locale.value === 'es-ES' && product.name_es) {
+  if ((lang === 'es-ES' || lang === 'es') && product.name_es) {
+    console.log('使用西班牙语商品名称:', product.name_es)
     return product.name_es
   }
-  if (locale.value === 'pt-BR' && product.name_pt) {
+  if ((lang === 'pt-BR' || lang === 'pt') && product.name_pt) {
+    console.log('使用葡萄牙语商品名称:', product.name_pt)
     return product.name_pt
   }
+  
+  console.log('使用默认商品名称:', product.name || '')
   return product.name || ''
 }
 
@@ -826,7 +859,15 @@ const loadCategories = async () => {
       forbidClick: true,
     })
     const data = await getCategories()
-    categories.value = data || []
+    // 对分类进行排序，按照 sort 字段降序，created_at 字段升序
+    categories.value = (data || []).sort((a, b) => {
+      // 先按 sort 字段降序排序
+      if (a.sort !== b.sort) {
+        return b.sort - a.sort
+      }
+      // 如果 sort 相同，按 created_at 字段升序排序
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    })
     // 只有当没有选中的分类时，才默认选择全部分类
     // 这样可以保持路由参数设置的分类 ID
     if (selectedCategoryId.value === null) {
@@ -1284,14 +1325,17 @@ onUnmounted(() => {
     margin-right: 12px;
     
     .product-name {
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 500;
       color: #333333;
       margin-bottom: 6px;
       overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
       cursor: pointer;
+      line-height: 1.3;
+      max-height: 2.6em;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
     }
     
     .product-stock {
@@ -1695,9 +1739,12 @@ onUnmounted(() => {
           color: #333;
           margin-bottom: 4px;
           overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
           cursor: pointer;
+          line-height: 1.3;
+          max-height: 2.6em;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
         }
         
         .selected-item-specs {
@@ -1721,6 +1768,7 @@ onUnmounted(() => {
       
       /* 更改规格按钮 */
       .change-specs-btn {
+        width: 50px;
         padding: 2px 8px;
         background: #ee0a24;
         color: white;
@@ -1734,7 +1782,8 @@ onUnmounted(() => {
         align-items: center;
         justify-content: center;
         white-space: nowrap;
-        margin-left: 8px;
+        margin-left: 0px;
+        flex-shrink: 0;
         
         &:hover {
           background: #d40a1e;
@@ -1749,15 +1798,19 @@ onUnmounted(() => {
       /* 商品名称行样式 */
       .selected-item-name {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         justify-content: space-between;
         flex-wrap: wrap;
+        gap: 4px;
         
         .item-name-text {
           flex: 1;
           overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
+          line-height: 1.3;
+          max-height: 2.6em;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
         }
       }
       

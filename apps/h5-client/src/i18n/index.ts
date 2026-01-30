@@ -16,16 +16,21 @@ const messages = {
 // 获取默认语言
 const getDefaultLocale = () => {
   const saved = localStorage.getItem('locale')
+  console.log('从localStorage获取的语言:', saved)
   if (saved && messages[saved as keyof typeof messages]) {
+    console.log('使用localStorage中的语言:', saved)
     return saved
   }
   
   // 浏览器语言
   const browserLang = navigator.language
+  console.log('浏览器语言:', browserLang)
   if (messages[browserLang as keyof typeof messages]) {
+    console.log('使用浏览器语言:', browserLang)
     return browserLang
   }
   
+  console.log('使用默认语言: zh-CN')
   return 'zh-CN'
 }
 

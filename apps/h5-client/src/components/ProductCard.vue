@@ -6,6 +6,9 @@
         :alt="getProductName(product)" 
         @error="handleImageError"
         loading="lazy"
+        width="100%"
+        height="100%"
+        style="object-fit: cover;"
       />
       <!-- 售罄标识 -->
       <div v-if="product.stock <= 0" class="sold-out-overlay">

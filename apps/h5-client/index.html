@@ -5,24 +5,152 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#ee0a24">
+    <meta name="format-detection" content="telephone=no, email=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="悦享茶歇">
+    <meta name="msapplication-TileImage" content="/vite.svg">
+    <meta name="msapplication-TileColor" content="#ee0a24">
     <title>悦享茶歇</title>
-    <!-- 预连接到API服务器 -->
-    <link rel="preconnect" href="/api">
-    <!-- 预连接到上传文件服务器 -->
-    <link rel="preconnect" href="/uploads">
+    <!-- DNS预解析 -->
+    <link rel="dns-prefetch" href="//fonts.googleapis.com">
+    <link rel="dns-prefetch" href="//fonts.gstatic.com">
+    <!-- 预连接 -->
+    <link rel="preconnect" href="/api" crossorigin>
+    <link rel="preconnect" href="/uploads" crossorigin>
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <!-- 预加载关键CSS -->
-    <link rel="preload" as="style" href="/src/styles/global.scss">
-    <!-- 预加载关键字体（如果有） -->
-    <link rel="preload" as="font" crossorigin href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap">
-    <!-- 预取常见路由 -->
-    <link rel="prefetch" as="script" href="/src/views/Home.vue">
-    <link rel="prefetch" as="script" href="/src/views/Category.vue">
-    <link rel="prefetch" as="script" href="/src/views/ProductDetail.vue">
-    <!-- 预取可能需要的组件 -->
-    <link rel="prefetch" as="script" href="/src/components/ProductCard.vue">
+    <link rel="preload" as="style" href="/src/styles/global.scss" crossorigin>
+    <!-- 字体加载优化 -->
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" as="fetch" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <style>
+      /* 字体加载策略 */
+      @font-face {
+        font-family: 'Noto Sans SC';
+        font-style: normal;
+        font-weight: 400;
+        font-display: swap;
+        src: local('Noto Sans SC'), local('NotoSansSC-Regular');
+      }
+      @font-face {
+        font-family: 'Noto Sans SC';
+        font-style: normal;
+        font-weight: 500;
+        font-display: swap;
+        src: local('Noto Sans SC Medium'), local('NotoSansSC-Medium');
+      }
+      @font-face {
+        font-family: 'Noto Sans SC';
+        font-style: normal;
+        font-weight: 700;
+        font-display: swap;
+        src: local('Noto Sans SC Bold'), local('NotoSansSC-Bold');
+      }
+      /* 基础样式，确保首屏渲染 */
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        line-height: 1.5;
+        color: #333;
+        background-color: #fff;
+      }
+      #app {
+        min-height: 100vh;
+      }
+    </style>
   </head>
   <body>
     <div id="app"></div>
     <script type="module" src="/src/main.ts"></script>
+    <!-- 延迟加载字体CSS -->
+    <script>
+      (function() {
+        var link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap';
+        link.crossOrigin = 'anonymous';
+        var head = document.head;
+        head.appendChild(link);
+      })();
+    </script>
+    
+    <!-- 微信浏览器特殊优化 -->
+    <script>
+      (function() {
+        // 检测微信浏览器
+        var isWeChat = navigator.userAgent.toLowerCase().indexOf('micromessenger') > -1;
+        
+        if (isWeChat) {
+          console.log('微信浏览器检测到，应用特殊优化');
+          
+          // 1. 禁用微信浏览器的默认下拉刷新
+          document.addEventListener('touchmove', function(e) {
+            var scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+            var scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight;
+            var clientHeight = document.documentElement.clientHeight || window.innerHeight;
+            
+            // 当滚动到顶部或底部时，阻止默认行为
+            if ((scrollTop === 0 && e.touches[0].clientY > e.touches[0].pageY) || 
+                (scrollTop + clientHeight >= scrollHeight && e.touches[0].clientY < e.touches[0].pageY)) {
+              e.preventDefault();
+            }
+          }, { passive: false });
+          
+          // 2. 微信浏览器缓存优化
+          // 尝试使用localStorage缓存一些基本配置
+          try {
+            localStorage.setItem('wechat_optimization', 'enabled');
+            localStorage.setItem('last_visit', Date.now().toString());
+          } catch (e) {
+            console.log('localStorage不可用');
+          }
+          
+          // 3. 预加载关键资源
+          if (window.performance && window.performance.navigation.type === 0) {
+            // 首次加载时预加载
+            setTimeout(function() {
+              // 预加载首页可能用到的资源
+              var preloadLinks = [
+                '/src/views/Home.vue',
+                '/src/views/Category.vue',
+                '/src/views/ProductDetail.vue'
+              ];
+              
+              preloadLinks.forEach(function(url) {
+                var link = document.createElement('link');
+                link.rel = 'prefetch';
+                link.href = url;
+                document.head.appendChild(link);
+              });
+            }, 1000);
+          }
+        }
+        
+        // 4. 通用性能优化
+        // 减少重绘和回流
+        function throttle(fn, delay) {
+          var timer = null;
+          return function() {
+            var context = this;
+            var args = arguments;
+            if (!timer) {
+              timer = setTimeout(function() {
+                fn.apply(context, args);
+                timer = null;
+              }, delay);
+            }
+          };
+        }
+        
+        // 优化滚动事件
+        if (window.addEventListener) {
+          var originalScroll = window.scroll;
+          window.scroll = throttle(originalScroll, 16);
+        }
+      })();
+    </script>
   </body>
 </html>

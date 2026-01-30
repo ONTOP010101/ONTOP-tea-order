@@ -136,7 +136,7 @@ const getStatusType = (status: string) => {
   return map[status] || 'default'
 }
 
-const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
+const capitalize = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 
 onMounted(() => {
   loadOrder()

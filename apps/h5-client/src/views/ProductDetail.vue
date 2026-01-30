@@ -24,11 +24,14 @@
         <van-swipe class="product-swipe" :autoplay="3000">
           <van-swipe-item v-for="(image, index) in getProductImages(product)" :key="index">
             <img 
-            :src="image" 
-            :alt="product.name" 
-            @error="handleImageError" 
-            loading="lazy"
-          />
+              :src="image" 
+              :alt="product.name" 
+              @error="handleImageError" 
+              loading="lazy"
+              width="100%"
+              height="100%"
+              style="object-fit: cover;"
+            />
             <!-- 售罄标识 -->
             <div v-if="product.stock <= 0" class="sold-out-overlay">
               <div class="sold-out-text">{{ $t('product.soldOut') }}</div>
@@ -771,11 +774,11 @@ watch(
 
     .name-container {
       display: flex;
-      justify-content: space-between;
-      align-items: center;
+      flex-direction: column;
+      align-items: flex-start;
       margin-bottom: 12px;
       flex-wrap: nowrap;
-      height: 40px;
+      min-height: 40px;
     }
 
     .product-name {
@@ -783,9 +786,8 @@ watch(
       font-weight: bold;
       color: #333;
       margin: 0;
-      line-height: 40px;
+      margin-bottom: 8px;
       flex: 1;
-      margin-right: 12px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -815,7 +817,6 @@ watch(
       border-top: none;
       flex-shrink: 0;
       align-items: center;
-      height: 100%;
     }
 
     .sold-out-text {

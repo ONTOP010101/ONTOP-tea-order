@@ -329,6 +329,9 @@ const getItemCategory = (item: any): string => {
     }
   }
   // 3. 根据商品名称推断类别
+  if (!item.name) {
+    return '其他';
+  }
   const itemName = item.name.toLowerCase();
   
   // 蛋糕甜点类
@@ -369,7 +372,7 @@ const getItemCategory = (item: any): string => {
   }
   
   // 4. 最后使用商品名称的首字母
-  return item.name.charAt(0).toUpperCase() || '';
+  return item.name.charAt(0).toUpperCase() || '其他';
 };
 
 // 排序订单内的商品

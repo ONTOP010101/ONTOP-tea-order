@@ -36,7 +36,8 @@
     "title": "Categories",
     "all": "All",
     "noProducts": "No products available",
-    "noSearchResults": "No search results"
+    "noSearchResults": "No search results",
+    "searchPlaceholder": "Search products"
   },
   "product": {
     "detail": "Product Detail",

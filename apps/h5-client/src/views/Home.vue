@@ -46,6 +46,9 @@
           :src="getBannerImageUrl(banner.image)" 
           :alt="banner.title" 
           loading="lazy"
+          width="100%"
+          height="100%"
+          style="object-fit: cover;"
         />
       </van-swipe-item>
     </van-swipe>
@@ -64,6 +67,9 @@
               :src="getBannerImageUrl(category.icon)" 
               :alt="getCategoryName(category)" 
               loading="lazy"
+              width="100%"
+              height="100%"
+              style="object-fit: cover;"
             />
           </div>
           <div class="category-name">{{ getCategoryName(category) }}</div>

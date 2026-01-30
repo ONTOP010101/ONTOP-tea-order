@@ -1,18 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { useUserStore } from '@/stores/user'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'LanguageSelect',
-    component: () => import('@/views/LanguageSelect.vue'),
+    component: () => import(/* webpackChunkName: "LanguageSelect" */ '@/views/LanguageSelect.vue'),
     meta: { title: 'selectLanguage', requiresAuth: false, skipLanguageCheck: true }
   },
   {
     path: '/home',
     name: 'Home',
-    component: () => import('@/views/Home.vue'),
+    component: () => import(/* webpackChunkName: "Home" */ '@/views/Home.vue'),
     meta: { 
       title: 'home', 
       requiresAuth: false,
@@ -23,7 +22,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/category',
     name: 'Category',
-    component: () => import('@/views/Category.vue'),
+    component: () => import(/* webpackChunkName: "Category" */ '@/views/Category.vue'),
     meta: { 
       title: 'category', 
       requiresAuth: false,
@@ -34,7 +33,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/product/:id',
     name: 'ProductDetail',
-    component: () => import('@/views/ProductDetail.vue'),
+    component: () => import(/* webpackChunkName: "ProductDetail" */ '@/views/ProductDetail.vue'),
     meta: { 
       title: 'productDetail', 
       requiresAuth: false,
@@ -45,7 +44,7 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/cart',
     name: 'Cart',
-    component: () => import('@/views/Cart.vue'),
+    component: () => import(/* webpackChunkName: "Cart" */ '@/views/Cart.vue'),
     meta: { 
       title: 'cart', 
       requiresAuth: false,
@@ -56,43 +55,43 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/order/confirm',
     name: 'OrderConfirm',
-    component: () => import('@/views/OrderConfirm.vue'),
+    component: () => import(/* webpackChunkName: "OrderConfirm" */ '@/views/OrderConfirm.vue'),
     meta: { title: 'confirmOrder', requiresAuth: false }
   },
   {
     path: '/order/list',
     name: 'OrderList',
-    component: () => import('@/views/OrderList.vue'),
+    component: () => import(/* webpackChunkName: "OrderList" */ '@/views/OrderList.vue'),
     meta: { title: 'myOrders', requiresAuth: false }
   },
   {
     path: '/order/detail/:id',
     name: 'OrderDetail',
-    component: () => import('@/views/OrderDetail.vue'),
+    component: () => import(/* webpackChunkName: "OrderDetail" */ '@/views/OrderDetail.vue'),
     meta: { title: 'orderDetail', requiresAuth: false }
   },
   {
     path: '/coupon',
     name: 'Coupon',
-    component: () => import('@/views/Coupon.vue'),
+    component: () => import(/* webpackChunkName: "Coupon" */ '@/views/Coupon.vue'),
     meta: { title: 'myCoupons', requiresAuth: false }
   },
   {
     path: '/profile',
     name: 'Profile',
-    component: () => import('@/views/Profile.vue'),
+    component: () => import(/* webpackChunkName: "Profile" */ '@/views/Profile.vue'),
     meta: { title: 'profile', requiresAuth: false }
   },
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/Login.vue'),
+    component: () => import(/* webpackChunkName: "Login" */ '@/views/Login.vue'),
     meta: { title: 'login', requiresAuth: false }
   },
   {
     path: '/register',
     name: 'Register',
-    component: () => import('@/views/Register.vue'),
+    component: () => import(/* webpackChunkName: "Register" */ '@/views/Register.vue'),
     meta: { title: 'register', requiresAuth: false }
   }
 ]
@@ -109,16 +108,28 @@ const router = createRouter({
 const prefetchRoutes = (routesToPrefetch: string[]) => {
   if (!routesToPrefetch || !Array.isArray(routesToPrefetch)) return
   
+  // 组件预加载映射，存储每个路由对应的组件加载函数
+  const componentLoaders: Record<string, () => Promise<any>> = {
+    LanguageSelect: () => import('@/views/LanguageSelect.vue'),
+    Home: () => import('@/views/Home.vue'),
+    Category: () => import('@/views/Category.vue'),
+    ProductDetail: () => import('@/views/ProductDetail.vue'),
+    Cart: () => import('@/views/Cart.vue'),
+    OrderConfirm: () => import('@/views/OrderConfirm.vue'),
+    OrderList: () => import('@/views/OrderList.vue'),
+    OrderDetail: () => import('@/views/OrderDetail.vue'),
+    Coupon: () => import('@/views/Coupon.vue'),
+    Profile: () => import('@/views/Profile.vue'),
+    Login: () => import('@/views/Login.vue'),
+    Register: () => import('@/views/Register.vue')
+  }
+  
   routesToPrefetch.forEach(routeName => {
-    const route = router.getRoutes().find(r => r.name === routeName)
-    if (route && route.component && typeof route.component === 'function') {
+    const loader = componentLoaders[routeName]
+    if (loader) {
       try {
-        // 触发组件的预加载
-        const componentLoader = route.component
-        if (typeof componentLoader === 'function') {
-          // 这里只是触发组件的代码分割，不会实际渲染
-          // Vue的动态导入会自动处理缓存
-        }
+        // 触发组件的预加载，使用Promise.resolve()确保不会阻塞
+        Promise.resolve().then(() => loader())
       } catch (error) {
         console.warn('Failed to prefetch route:', routeName, error)
       }

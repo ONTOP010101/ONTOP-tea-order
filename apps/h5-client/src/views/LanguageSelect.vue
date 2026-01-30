@@ -72,8 +72,12 @@ const languages = [
 const selectLanguage = (lang: string) => {
   // 设置语言
   locale.value = lang
-  localStorage.setItem('language', lang)
+  localStorage.setItem('locale', lang)
   localStorage.setItem('language-selected', 'true')
+  
+  console.log('语言选择:', lang)
+  console.log('locale设置:', locale.value)
+  console.log('localStorage设置:', localStorage.getItem('locale'))
   
   // 设置RTL
   if (lang === 'ar-SA') {

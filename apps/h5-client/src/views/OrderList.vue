@@ -160,7 +160,7 @@ const getStatusType = (status: string) => {
   return map[status] || 'default'
 }
 
-const capitalize = (str: string) => str.charAt(0).toUpperCase() + str.slice(1)
+const capitalize = (str: string) => str ? str.charAt(0).toUpperCase() + str.slice(1) : ''
 
 // 获取图片URL，使用多语言占位图
 const getPlaceholderImage = () => {

@@ -36,7 +36,8 @@
     "title": "الأقسام",
     "all": "الكل",
     "noProducts": "لا توجد منتجات متاحة",
-    "noSearchResults": "لا توجد نتائج بحث"
+    "noSearchResults": "لا توجد نتائج بحث",
+    "searchPlaceholder": "البحث عن المنتجات"
   },
   "product": {
     "detail": "تفاصيل المنتج",

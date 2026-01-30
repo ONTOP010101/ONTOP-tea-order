@@ -9,13 +9,16 @@ interface CacheConfig {
 }
 
 const cacheConfig: CacheConfig = {
-  enabled: true,
+  enabled: true, // 重新启用缓存
   ttl: 5 * 60 * 1000, // 5分钟缓存
   keys: [
     '/product/category',
     '/product/hot',
     '/product/new',
-    '/banner/active'
+    '/banner/active',
+    '/categories',
+    '/products',
+    '/banners'
   ]
 }
 
@@ -82,15 +85,6 @@ instance.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
     
-    // 检查缓存
-    if (shouldCache(config)) {
-      const cachedData = getCache(config)
-      if (cachedData) {
-        // 返回缓存的数据，跳过网络请求
-        return Promise.resolve({ data: { code: 200, message: 'success', data: cachedData } })
-      }
-    }
-    
     return config
   },
   (error: AxiosError) => {
@@ -110,6 +104,15 @@ instance.interceptors.response.use(
         setCache(response.config, res.data)
       }
       return res.data
+    }
+    
+    // 处理后端直接返回数据的情况（如直接返回数组或对象）
+    if (res.code === undefined) {
+      // 缓存成功的响应
+      if (shouldCache(response.config)) {
+        setCache(response.config, res)
+      }
+      return res
     }
     
     // 错误处理
@@ -141,5 +144,39 @@ export const clearCacheByUrl = (url: string): void => {
     if (key.includes(url)) {
       cacheStore.delete(key)
     }
+  }
+}
+
+// 并行请求工具函数
+export const parallelRequests = async <T extends Array<Promise<any>>>(
+  requests: T
+): Promise<{ [K in keyof T]: Awaited<T[K]> }> => {
+  try {
+    const results = await Promise.all(requests)
+    return results as { [K in keyof T]: Awaited<T[K]> }
+  } catch (error) {
+    console.error('并行请求失败:', error)
+    throw error
+  }
+}
+
+// 带超时的并行请求工具函数
+export const parallelRequestsWithTimeout = async <T extends Array<Promise<any>>>(
+  requests: T,
+  timeout: number = 10000
+): Promise<{ [K in keyof T]: Awaited<T[K]> }> => {
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    setTimeout(() => reject(new Error('并行请求超时')), timeout)
+  })
+
+  try {
+    const results = await Promise.race([
+      Promise.all(requests),
+      timeoutPromise
+    ])
+    return results as { [K in keyof T]: Awaited<T[K]> }
+  } catch (error) {
+    console.error('并行请求失败:', error)
+    throw error
   }
 }
