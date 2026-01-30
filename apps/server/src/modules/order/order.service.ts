@@ -459,6 +459,11 @@ export class OrderService {
       }
     }
 
+    // 添加时间过滤，只返回48小时内的订单
+    const expirationTime = new Date();
+    expirationTime.setHours(expirationTime.getHours() - 48);
+    query.andWhere('order.created_at >= :expirationTime', { expirationTime });
+
     const [list, total] = await query
       .orderBy('order.created_at', 'DESC')
       .skip((page - 1) * pageSize)
@@ -471,6 +476,23 @@ export class OrderService {
       items: JSON.parse(order.items)
     }));
 
-    return { list: processedList, total, page, pageSize };
+    return {
+      list: processedList,
+      total,
+      page,
+      pageSize
+    };
+  }
+
+  // 清理过期订单（超过48小时）
+  async clearExpiredOrders(): Promise<void> {
+    const expirationTime = new Date();
+    expirationTime.setHours(expirationTime.getHours() - 48);
+    
+    await this.orderRepository.createQueryBuilder()
+      .delete()
+      .from(Order)
+      .where('created_at < :expirationTime', { expirationTime })
+      .execute();
   }
 }

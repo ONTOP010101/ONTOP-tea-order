@@ -42,6 +42,8 @@
               <img :src="getImageUrl(item.image)" :alt="item.name" @error="handleImageError" />
               <div class="share-item-info">
                 <div class="share-item-name">{{ item.name }}</div>
+                <!-- 显示规格组 -->
+                <div v-if="item.specs?.text" class="share-item-specs">{{ item.specs.text }}</div>
                 <div class="share-item-quantity">{{ $t('order.quantity') }}: {{ item.quantity }}</div>
               </div>
             </div>
@@ -256,78 +258,93 @@ onMounted(() => {
 
   /* 分享弹窗样式 */
   .share-popup {
-    padding: 24px;
+    padding: 16px;
     background: white;
     border-radius: 12px;
     text-align: center;
 
     h3 {
-      margin: 0 0 24px 0;
-      font-size: 20px;
+      margin: 0 0 16px 0;
+      font-size: 16px;
       font-weight: bold;
       color: var(--title-color);
     }
 
     .share-content {
-      max-height: 400px;
-      overflow-y: auto;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       text-align: left;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
     }
 
     .share-item {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      margin-bottom: 16px;
-      padding: 16px;
+      padding: 6px;
       background: #f8f9fa;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border-radius: 4px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+      text-align: center;
 
       img {
-        width: 80px;
-        height: 80px;
-        border-radius: 8px;
+        width: 40px;
+        height: 40px;
+        border-radius: 3px;
         object-fit: cover;
-        margin-right: 16px;
+        margin-right: 0;
+        margin-bottom: 6px;
         border: 1px solid #e9ecef;
       }
 
       .share-item-info {
         flex: 1;
+        width: 100%;
       }
 
       .share-item-name {
-        font-size: 16px;
+        font-size: 12px;
         font-weight: bold;
         color: var(--title-color);
-        margin-bottom: 8px;
+        margin-bottom: 2px;
+        line-height: 1.2;
+      }
+
+      .share-item-specs {
+        font-size: 10px;
+        color: var(--text-secondary);
+        background-color: #f5f5f5;
+        padding: 1px 6px;
+        border-radius: 8px;
+        margin: 2px 0;
+        display: inline-block;
       }
 
       .share-item-quantity {
-        font-size: 14px;
+        font-size: 10px;
         color: var(--text-secondary);
       }
     }
 
     .share-remark {
-      margin-top: 16px;
-      padding: 16px;
+      margin-top: 12px;
+      padding: 10px;
       background: #f8f9fa;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 
       .share-remark-title {
-        font-size: 16px;
+        font-size: 12px;
         font-weight: bold;
         color: var(--title-color);
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
 
       .share-remark-content {
-        font-size: 14px;
+        font-size: 12px;
         color: var(--text-color);
-        line-height: 1.5;
+        line-height: 1.4;
       }
     }
   }

@@ -80,7 +80,7 @@
                   class="product-item"
                 >
                 <!-- 商品图片 -->
-                <div class="product-image" @click="goToProductDetail(product)">
+                <div class="product-image" @click="goToCategory(product._categoryId)">
                   <van-image
                     :src="getImageUrl(product.image || product.images)"
                     :alt="product.name"
@@ -353,6 +353,23 @@ watch(
   { immediate: true }
 )
 
+// 监听路由查询参数中的分类ID
+watch(
+  () => route.query.categoryId,
+  (categoryId) => {
+    if (categoryId) {
+      const id = parseInt(categoryId as string)
+      if (!isNaN(id)) {
+        // 只设置selectedCategoryId，不直接调用loadProducts
+        // 这样可以避免在loadProducts函数定义之前调用它
+        selectedCategoryId.value = id
+        // 加载商品的逻辑会在组件初始化完成后执行
+      }
+    }
+  },
+  { immediate: true }
+)
+
 // 监听搜索关键词变化
 watch(
   searchKeyword,
@@ -366,6 +383,49 @@ watch(
       }
     }
   }
+)
+
+// 监听selectedCategoryId变化
+watch(
+  selectedCategoryId,
+  async (newCategoryId) => {
+    if (newCategoryId !== null) {
+      // 确保categories数组已经被加载
+      if (categories.value.length === 0) {
+        // 等待categories数组加载完成
+        await new Promise(resolve => {
+          const checkCategories = () => {
+            if (categories.value.length > 0) {
+              resolve(null)
+            } else {
+              setTimeout(checkCategories, 100)
+            }
+          }
+          checkCategories()
+        })
+      }
+      // 当selectedCategoryId变化时，找到对应的分类并调用selectCategory方法
+      // 这样可以确保左侧分类列表正确高亮显示
+      const category = categories.value.find(cat => cat.id === newCategoryId)
+      if (category) {
+        selectCategory(category)
+      }
+    }
+  }
+)
+
+// 监听categories变化，确保分类数据加载完成后，能正确找到对应的分类并加载商品
+watch(
+  categories,
+  async (newCategories) => {
+    if (newCategories.length > 0 && selectedCategoryId.value !== null) {
+      const category = newCategories.find(cat => cat.id === selectedCategoryId.value)
+      if (category) {
+        selectCategory(category)
+      }
+    }
+  },
+  { deep: true }
 )
 
 // 无限滚动相关
@@ -767,8 +827,11 @@ const loadCategories = async () => {
     })
     const data = await getCategories()
     categories.value = data || []
-    // 默认选择全部分类
-    await selectAllCategories()
+    // 只有当没有选中的分类时，才默认选择全部分类
+    // 这样可以保持路由参数设置的分类 ID
+    if (selectedCategoryId.value === null) {
+      await selectAllCategories()
+    }
   } catch (error: any) {
     console.error('加载分类失败:', error)
     showToast(t('category.loadError'))
@@ -785,6 +848,15 @@ const goToProductDetail = (product: Product) => {
 // 根据商品ID跳转到商品详情
 const goToProductDetailById = (productId: string) => {
   router.push(`/product/${productId}`)
+}
+
+// 跳转到对应分类
+const goToCategory = (categoryId: number) => {
+  // 找到对应的分类
+  const category = categories.value.find(cat => cat.id === categoryId)
+  if (category) {
+    selectCategory(category)
+  }
 }
 
 // 添加到购物车
@@ -945,6 +1017,21 @@ onUnmounted(() => {
   position: sticky;
   top: var(--van-nav-bar-height);
   z-index: 999;
+}
+
+/* 分类分隔线 */
+.category-divider {
+  background-color: #f8f8f8;
+  color: #333333;
+  font-size: 16px;
+  font-weight: bold;
+  padding: 12px 18px;
+  margin: 0;
+  border-bottom: 1px solid #e0e0e0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .search-bar-container .van-search {

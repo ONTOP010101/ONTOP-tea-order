@@ -6,6 +6,7 @@ import i18n from './i18n'
 import 'vant/lib/index.css'
 import './styles/global.scss'
 import './styles/stepper-custom.css'
+import { initPerformanceMonitoring } from './utils/performance'
 
 const app = createApp(App)
 
@@ -14,3 +15,6 @@ app.use(router)
 app.use(i18n)
 
 app.mount('#app')
+
+// 初始化性能监控
+initPerformanceMonitoring()

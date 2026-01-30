@@ -51,21 +51,23 @@
     </van-swipe>
 
     <!-- 分类导航 -->
-    <div class="category-nav">
-      <div
-        v-for="category in categories"
-        :key="category.id"
-        class="category-item"
-        @click="goCategory(category.id)"
-      >
-        <div class="category-icon">
-          <img 
-            :src="getBannerImageUrl(category.icon)" 
-            :alt="getCategoryName(category)" 
-            loading="lazy"
-          />
+    <div class="category-nav-container" ref="categoryNavContainerRef">
+      <div class="category-nav" ref="categoryNavRef">
+        <div
+          v-for="category in categories.slice(0, 4)"
+          :key="category.id"
+          class="category-item"
+          @click="goCategory(category.id)"
+        >
+          <div class="category-icon">
+            <img 
+              :src="getBannerImageUrl(category.icon)" 
+              :alt="getCategoryName(category)" 
+              loading="lazy"
+            />
+          </div>
+          <div class="category-name">{{ getCategoryName(category) }}</div>
         </div>
-        <div class="category-name">{{ getCategoryName(category) }}</div>
       </div>
     </div>
 
@@ -310,7 +312,7 @@ const loadData = async () => {
       getNewProducts(8)
     ])
     banners.value = bannerRes || []
-    categories.value = categoryRes.slice(0, 4)
+    categories.value = categoryRes
     hotProducts.value = hotRes
     newProducts.value = newRes
   } catch (error) {
@@ -322,16 +324,127 @@ const onSearch = (value: string) => {
   router.push({ path: '/category', query: { keyword: value } })
 }
 
-const goCategory = (id: string) => {
-  router.push({ path: '/category', query: { categoryId: id } })
+const goCategory = (id: any) => {
+  router.push({ path: '/category', query: { categoryId: id.toString() } })
 }
 
 const goProductDetail = (id: string) => {
   router.push(`/product/${id}`)
 }
 
-onMounted(() => {
-  loadData()
+// 分类导航容器引用
+const categoryNavContainerRef = ref<HTMLElement | null>(null)
+const categoryNavRef = ref<HTMLElement | null>(null)
+
+// 初始化滚动位置
+const initScrollPosition = ref(0)
+
+// 节流函数，减少滚动事件触发频率
+const throttle = (func: Function, delay: number) => {
+  let lastCall = 0
+  return (...args: any[]) => {
+    const now = Date.now()
+    if (now - lastCall < delay) return
+    lastCall = now
+    return func(...args)
+  }
+}
+
+// 触摸事件相关变量
+const touchStartX = ref(0)
+const touchStartScrollLeft = ref(0)
+const isDragging = ref(false)
+
+// 触摸开始事件处理
+const handleTouchStart = (e: TouchEvent) => {
+  const container = categoryNavContainerRef.value
+  
+  if (!container || !e.touches || e.touches.length === 0) return
+  
+  // 记录触摸开始位置和当前滚动位置
+  touchStartX.value = e.touches[0].clientX
+  touchStartScrollLeft.value = container.scrollLeft
+  isDragging.value = true
+  
+  // 防止触摸时页面滚动
+  e.preventDefault()
+}
+
+// 优化触摸移动事件处理，减少节流延迟
+const handleTouchMove = (e: TouchEvent) => {
+  const container = categoryNavContainerRef.value
+  
+  if (!container || !isDragging.value || !e.touches || e.touches.length === 0) return
+  
+  // 防止触摸时页面滚动
+  e.preventDefault()
+  
+  // 计算触摸移动距离
+  const touchCurrentX = e.touches[0].clientX
+  const touchDiffX = touchStartX.value - touchCurrentX
+  
+  // 更新滚动位置
+  container.scrollLeft = touchStartScrollLeft.value + touchDiffX
+}
+
+// 触摸结束事件处理
+const handleTouchEnd = () => {
+  isDragging.value = false
+}
+
+// 设置触摸事件监听器
+const setupTouchListeners = () => {
+  const container = categoryNavContainerRef.value
+  
+  if (!container) return
+  
+  // 添加触摸事件监听器，实现手机上的拖拽滚动，使用passive选项提高性能
+  container.addEventListener('touchstart', handleTouchStart, { passive: true })
+  container.addEventListener('touchmove', handleTouchMove, { passive: true })
+  container.addEventListener('touchend', handleTouchEnd, { passive: true })
+  container.addEventListener('touchcancel', handleTouchEnd, { passive: true })
+  
+  // 保存事件处理函数引用，以便在组件卸载时移除
+  container._touchStartHandler = handleTouchStart
+  container._touchMoveHandler = handleTouchMove
+  container._touchEndHandler = handleTouchEnd
+  container._touchCancelHandler = handleTouchEnd
+}
+
+// 移除触摸事件监听
+const removeTouchListeners = () => {
+  const container = categoryNavContainerRef.value
+  
+  if (!container) return
+  
+  // 移除触摸事件监听器
+  if (container._touchStartHandler) {
+    container.removeEventListener('touchstart', container._touchStartHandler)
+    delete container._touchStartHandler
+  }
+  if (container._touchMoveHandler) {
+    container.removeEventListener('touchmove', container._touchMoveHandler)
+    delete container._touchMoveHandler
+  }
+  if (container._touchEndHandler) {
+    container.removeEventListener('touchend', container._touchEndHandler)
+    container.removeEventListener('touchcancel', container._touchEndHandler)
+    delete container._touchEndHandler
+    delete container._touchCancelHandler
+  }
+}
+
+onUnmounted(() => {
+  removeTouchListeners()
+})
+
+onMounted(async () => {
+  await loadData()
+  
+  // 延迟执行，确保 DOM 已经渲染完成
+  setTimeout(() => {
+    setupTouchListeners()
+  }, 300)
 })
 </script>
 
@@ -403,36 +516,175 @@ onMounted(() => {
   }
 }
 
-.category-nav {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  padding: 16px;
+.category-nav-container {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: white;
+  padding: 16px 0;
+  /* 隐藏滚动条 */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  /* 启用平滑滚动 */
+  scroll-behavior: smooth;
+  /* 禁用文本选择，提高触摸体验 */
+  -webkit-user-select: none;
+  user-select: none;
+  /* 确保容器高度足够，容纳分类项 */
+  min-height: 110px;
+
+  /* 鼠标悬停时显示手型光标 */
+  cursor: grab;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  /* 隐藏 WebKit 滚动条 */
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 触摸设备上的优化 */
+  @media (hover: none) and (pointer: coarse) {
+    /* 启用触摸滚动 */
+    -webkit-overflow-scrolling: touch;
+    /* 允许水平滚动 */
+    touch-action: pan-x;
+    /* 禁用长按菜单 */
+    -webkit-touch-callout: none;
+    /* 确保滚动容器大小正确 */
+    min-height: 110px;
+  }
+}
+
+.category-nav {
+  display: flex;
+  justify-content: space-around;
+  padding: 0 20px;
+  /* 不使用gap，使用justify-content: space-around来平均分布 */
+  /* 启用硬件加速 */
+  transform: translateZ(0);
+  will-change: transform;
+  /* 优化渲染性能 */
+  backface-visibility: hidden;
+  perspective: 1000px;
 
   .category-item {
+    /* 调整分类项大小，确保一屏显示4个 */
+    flex: 0 0 75px;
+    max-width: 75px;
     text-align: center;
     cursor: pointer;
+    transition: transform 0.2s ease;
+    /* 优化渲染性能 */
+    transform: translateZ(0);
+    backface-visibility: hidden;
+
+    /* 鼠标悬停效果（仅桌面设备） */
+    @media (hover: hover) and (pointer: fine) {
+      &:hover {
+        transform: translateY(-2px);
+      }
+    }
 
     .category-icon {
-      width: 50px;
-      height: 50px;
+      width: 60px;
+      height: 60px;
       margin: 0 auto 8px;
       border-radius: 50%;
       overflow: hidden;
       background: var(--bg-color);
+      /* 优化渲染性能 */
+      transform: translateZ(0);
 
       img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        /* 优化图片加载 */
+        transition: opacity 0.3s ease;
       }
     }
 
     .category-name {
       font-size: 12px;
       color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+  }
+}
+
+/* 响应式调整，确保一屏显示4个分类 */
+@media (max-width: 768px) {
+  .category-nav {
+    padding: 0 15px;
+  }
+  
+  .category-nav .category-item {
+    flex: 0 0 70px;
+    max-width: 70px;
+  }
+  
+  .category-nav .category-item .category-icon {
+    width: 55px;
+    height: 55px;
+  }
+  
+  .category-nav .category-item .category-name {
+    font-size: 11px;
+  }
+}
+
+/* 手机端调整 */
+@media (max-width: 480px) {
+  .category-nav {
+    padding: 0 10px;
+  }
+  
+  .category-nav .category-item {
+    flex: 0 0 75px;
+    max-width: 75px;
+  }
+  
+  .category-nav .category-item .category-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 8px;
+  }
+  
+  .category-nav .category-item .category-name {
+    font-size: 12px;
+  }
+}
+
+/* 触摸设备上的滚动行为 */
+@media (hover: none) and (pointer: coarse) {
+  .category-nav-container {
+    cursor: default;
+    -webkit-overflow-scrolling: touch;
+    /* 增强触摸滚动体验 */
+    scroll-behavior: smooth;
+  }
+
+  .category-nav {
+    /* 触摸设备默认启用动画，但触摸后会暂停并保持暂停状态 */
+    animation-play-state: running;
+  }
+  
+  /* 触摸设备上的触摸反馈 */
+  .category-item {
+    touch-action: pan-x;
+    /* 添加触摸反馈 */
+    transition: transform 0.1s ease;
+  }
+  
+  /* 触摸设备上的触摸按下效果 */
+  .category-item:active {
+    transform: scale(0.95);
   }
 }
 

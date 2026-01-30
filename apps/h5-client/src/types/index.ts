@@ -62,7 +62,7 @@ export interface ProductSpecOption {
 }
 
 export interface Category {
-  id: string
+  id: number
   name: string
   name_en?: string  // 英文名称
   name_ar?: string  // 阿拉伯语名称
@@ -70,7 +70,7 @@ export interface Category {
   name_pt?: string  // 葡萄牙语名称
   icon?: string
   sort: number
-  parentId?: string
+  parentId?: number
   children?: Category[]
 }
 

@@ -314,79 +314,85 @@ onMounted(() => {
 
   /* 分享弹窗样式 */
   .share-popup {
-    padding: 20px;
+    padding: 16px;
     text-align: center;
 
     h3 {
-      margin: 0 0 20px 0;
-      font-size: 18px;
+      margin: 0 0 16px 0;
+      font-size: 16px;
       font-weight: bold;
     }
 
     .share-content {
-      max-height: 400px;
-      overflow-y: auto;
-      margin-bottom: 20px;
+      margin-bottom: 12px;
       text-align: left;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+      gap: 8px;
     }
 
     .share-item {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      margin-bottom: 16px;
-      padding: 12px;
+      padding: 6px;
       background: #f5f5f5;
-      border-radius: 8px;
+      border-radius: 4px;
+      text-align: center;
 
       img {
-        width: 80px;
-        height: 80px;
-        border-radius: 8px;
+        width: 40px;
+        height: 40px;
+        border-radius: 3px;
         object-fit: cover;
-        margin-right: 12px;
+        margin-right: 0;
+        margin-bottom: 6px;
       }
 
       .share-item-info {
         flex: 1;
+        width: 100%;
       }
 
       .share-item-name {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            line-height: 1.2;
           }
 
           .share-item-specs {
-            font-size: 12px;
+            font-size: 10px;
             color: #666;
             background-color: #f5f5f5;
-            padding: 2px 8px;
-            border-radius: 12px;
-            margin: 4px 0;
+            padding: 1px 6px;
+            border-radius: 8px;
+            margin: 2px 0;
             display: inline-block;
           }
 
           .share-item-quantity {
-            font-size: 12px;
+            font-size: 10px;
             color: #666;
           }
     }
 
     .share-remark {
-      margin-top: 16px;
-      padding: 12px;
+      margin-top: 12px;
+      padding: 10px;
       background: #f5f5f5;
-      border-radius: 8px;
+      border-radius: 6px;
 
       .share-remark-title {
-        font-size: 14px;
+        font-size: 12px;
         font-weight: bold;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
       }
 
       .share-remark-content {
-        font-size: 14px;
+        font-size: 12px;
         color: #333;
+        line-height: 1.4;
       }
     }
   }

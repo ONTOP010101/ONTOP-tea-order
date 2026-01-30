@@ -19,6 +19,11 @@ async function bootstrap() {
   // 静态文件服务 - 用于访问上传的图片
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
+    setHeaders: (res, path) => {
+      if (path.endsWith('.jpg') || path.endsWith('.jpeg') || path.endsWith('.png') || path.endsWith('.gif')) {
+        res.setHeader('Cache-Control', 'public, max-age=86400'); // 24小时缓存
+      }
+    }
   });
 
   // 跨域配置 - 支持多个来源

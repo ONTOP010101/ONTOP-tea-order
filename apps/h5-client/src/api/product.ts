@@ -22,7 +22,9 @@ export const getCategoryList = getCategories
 // 根据分类ID获取商品
 export const getProductsByCategory = (categoryId: number) => {
   return request.get<any, PaginationResponse<Product>>(`/products`, { params: { categoryId } }).then(response => {
-    return response.list || []
+    // 响应拦截器返回的是res.data，即 { list: [...], total: 3, page: 1, pageSize: 20 }
+    // 所以直接返回response.list
+    return response?.list || []
   })
 }
 

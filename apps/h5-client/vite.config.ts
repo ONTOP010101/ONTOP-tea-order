@@ -43,5 +43,35 @@ export default defineConfig({
         secure: false
       }
     }
+  },
+  build: {
+    target: 'es2015',
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.warn']
+      }
+    },
+    cssCodeSplit: true,
+    sourcemap: false,
+    chunkSizeWarningLimit: 200,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['vue', 'vue-router', 'pinia'],
+          vant: ['vant'],
+          i18n: ['vue-i18n'],
+          axios: ['axios'],
+          socket: ['socket.io-client'],
+          html2canvas: ['html2canvas'],
+          qrcode: ['qrcode']
+        },
+        chunkFileNames: 'js/[name]-[hash].js',
+        entryFileNames: 'js/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
+      }
+    }
   }
 })

@@ -7,20 +7,20 @@ const generateSessionId = (): string => {
 
 // 获取会话ID，如果不存在则生成新的
 export const getSessionId = (): string => {
-  let sessionId = sessionStorage.getItem('sessionId');
+  let sessionId = localStorage.getItem('sessionId');
   if (!sessionId) {
     sessionId = generateSessionId();
-    sessionStorage.setItem('sessionId', sessionId);
+    localStorage.setItem('sessionId', sessionId);
   }
   return sessionId;
 };
 
 // 清除会话ID
 export const clearSessionId = (): void => {
-  sessionStorage.removeItem('sessionId');
+  localStorage.removeItem('sessionId');
 };
 
 // 检查是否有会话ID
 export const hasSessionId = (): boolean => {
-  return !!sessionStorage.getItem('sessionId');
+  return !!localStorage.getItem('sessionId');
 };
