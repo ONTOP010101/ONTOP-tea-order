@@ -35,9 +35,9 @@ export class OrderGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(`制作端加入: ${client.id}`);
   }
 
-  // 推送新订单到制作端
+  // 推送新订单到所有连接的客户端
   notifyNewOrder(order: any) {
-    this.server.to('production-room').emit('new-order', {
+    this.server.emit('new-order', {
       type: 'NEW_ORDER',
       data: order,
       timestamp: new Date(),

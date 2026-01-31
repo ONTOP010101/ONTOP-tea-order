@@ -27,6 +27,18 @@
           </el-icon>
           刷新
         </el-button>
+
+        <el-button 
+          type="info" 
+          size="medium" 
+          @click="toggleAudioSettings"
+          class="settings-button"
+        >
+          <el-icon>
+            <Setting />
+          </el-icon>
+          设置
+        </el-button>
       </div>
       
 
@@ -68,6 +80,46 @@
       </div>
     </div>
     
+    <!-- 音频设置面板 -->
+    <div v-if="showAudioSettings" class="audio-settings-panel">
+      <div class="settings-header">
+        <h3>音频设置</h3>
+        <button @click="closeAudioSettings" class="close-button">
+          <el-icon>
+            <Close />
+          </el-icon>
+          关闭
+        </button>
+      </div>
+      <div class="audio-setting-item">
+        <label>音量设置：</label>
+        <el-slider
+          v-model="volumeLevel"
+          :min="0"
+          :max="1"
+          :step="0.1"
+          show-input
+          @change="handleVolumeChange"
+          style="flex: 1;"
+        />
+        <span class="volume-percentage">{{ Math.round(volumeLevel * 100) }}%</span>
+      </div>
+      <div class="audio-setting-item">
+        <label>新订单提示音：</label>
+        <input type="file" accept="audio/mp3,audio/wav" @change="handleAudioUpload('newOrder', $event)" />
+        <button v-if="customAudios.newOrder" @click="playCustomAudio('newOrder')" class="test-button">测试</button>
+        <button v-if="customAudios.newOrder" @click="removeCustomAudio('newOrder')" class="remove-button">移除</button>
+        <span v-if="customAudios.newOrder" class="audio-status">已上传</span>
+      </div>
+      <div class="audio-setting-item">
+        <label>超时订单提示音：</label>
+        <input type="file" accept="audio/mp3,audio/wav" @change="handleAudioUpload('timeoutOrder', $event)" />
+        <button v-if="customAudios.timeoutOrder" @click="playCustomAudio('timeoutOrder')" class="test-button">测试</button>
+        <button v-if="customAudios.timeoutOrder" @click="removeCustomAudio('timeoutOrder')" class="remove-button">移除</button>
+        <span v-if="customAudios.timeoutOrder" class="audio-status">已上传</span>
+      </div>
+    </div>
+
     <!-- 订单卡片容器 -->
     <div class="order-cards-container">
       <div 
@@ -146,6 +198,33 @@
       </div>
     </div>
 
+    <!-- 密码输入对话框 -->
+    <el-dialog
+      v-model="showPasswordDialog"
+      title="请输入密码"
+      width="300px"
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+    >
+      <el-form>
+        <el-form-item label="密码">
+          <el-input
+            v-model="passwordInput"
+            type="password"
+            placeholder="请输入设置密码"
+            @keyup.enter="validatePassword"
+            autocomplete="off"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="cancelPassword">取消</el-button>
+          <el-button type="primary" @click="validatePassword">确认</el-button>
+        </span>
+      </template>
+    </el-dialog>
+
     <!-- 图片预览模态框 -->
     <div v-if="previewVisible" class="image-preview-overlay" @click="closePreview">
       <div class="image-preview-content" @click.stop>
@@ -164,7 +243,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Refresh } from '@element-plus/icons-vue'
+import { Refresh, Setting, Close } from '@element-plus/icons-vue'
 import axios from 'axios'
 import { io } from 'socket.io-client'
 
@@ -213,6 +292,57 @@ const sortBy = ref<string>('default') // default, quantity, category
 const previewVisible = ref(false)
 const previewImageUrl = ref('')
 const previewImageName = ref('')
+
+// 自定义音频相关
+const customAudios = ref({
+  newOrder: localStorage.getItem('customAudio_newOrder'),
+  timeoutOrder: localStorage.getItem('customAudio_timeoutOrder')
+})
+
+// 音量设置
+const volumeLevel = ref(parseFloat(localStorage.getItem('audioVolume') || '1.0'))
+
+// 音频设置面板显示控制
+const showAudioSettings = ref(false)
+const showPasswordDialog = ref(false)
+const passwordInput = ref('')
+const PASSWORD = '684822'
+
+// 切换音频设置面板显示状态
+const toggleAudioSettings = () => {
+  showPasswordDialog.value = true
+}
+
+// 验证密码
+const validatePassword = () => {
+  if (passwordInput.value === PASSWORD) {
+    showAudioSettings.value = true
+    showPasswordDialog.value = false
+    passwordInput.value = ''
+    ElMessage.success('密码正确，已显示设置面板')
+  } else {
+    ElMessage.error('密码错误，请重试')
+    passwordInput.value = ''
+  }
+}
+
+// 取消密码输入
+const cancelPassword = () => {
+  showPasswordDialog.value = false
+  passwordInput.value = ''
+}
+
+// 处理音量变化
+const handleVolumeChange = (value: number) => {
+  volumeLevel.value = value
+  localStorage.setItem('audioVolume', value.toString())
+  ElMessage.success(`音量已设置为 ${Math.round(value * 100)}%`)
+}
+
+// 关闭音频设置面板
+const closeAudioSettings = () => {
+  showAudioSettings.value = false
+}
 
 
 
@@ -520,8 +650,79 @@ let timeoutCheckTimer: number | null = null
 // 上次播报时间
 let lastTimeoutAnnounceTime: number = 0
 
+// 处理音频上传
+const handleAudioUpload = (type: 'newOrder' | 'timeoutOrder', event?: Event) => {
+  const target = event?.target as HTMLInputElement;
+  if (!target || !target.files || target.files.length === 0) return;
+  
+  const file = target.files[0];
+  const reader = new FileReader();
+  
+  reader.onload = (e) => {
+    const audioData = e.target?.result as string;
+    customAudios.value[type] = audioData;
+    localStorage.setItem(`customAudio_${type}`, audioData);
+    ElMessage.success(`音频上传成功！`);
+  };
+  
+  reader.onerror = () => {
+    ElMessage.error('音频上传失败，请重试');
+  };
+  
+  reader.readAsDataURL(file);
+};
+
+// 播放自定义音频
+const playCustomAudio = (type: 'newOrder' | 'timeoutOrder') => {
+  try {
+    const audioData = customAudios.value[type];
+    if (audioData) {
+      const audio = new Audio(audioData);
+      audio.volume = volumeLevel.value;
+      audio.play().catch(err => {
+        console.error('播放音频失败:', err);
+        ElMessage.error('播放音频失败，请检查音频格式');
+      });
+    } else {
+      ElMessage.warning('请先上传音频文件');
+    }
+  } catch (error) {
+    console.error('播放音频失败:', error);
+    ElMessage.error('播放音频失败');
+  }
+};
+
+// 移除自定义音频
+const removeCustomAudio = (type: 'newOrder' | 'timeoutOrder') => {
+  customAudios.value[type] = '';
+  localStorage.removeItem(`customAudio_${type}`);
+  ElMessage.success('音频已移除，将使用默认语音');
+};
+
 // 播放新订单语音提示
 const playNewOrderSound = () => {
+  try {
+    // 优先使用自定义音频
+    if (customAudios.value.newOrder) {
+      const audio = new Audio(customAudios.value.newOrder);
+      audio.volume = volumeLevel.value;
+      audio.play().catch(err => {
+        console.error('播放自定义音频失败:', err);
+        // 失败时回退到默认语音
+        playDefaultNewOrderSound();
+      });
+      return;
+    }
+    
+    // 播放默认语音
+    playDefaultNewOrderSound();
+  } catch (error) {
+    console.error('播放语音提示失败:', error);
+  }
+};
+
+// 播放默认新订单语音
+const playDefaultNewOrderSound = () => {
   try {
     // 播放叮咚音效
     const dingSound = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
@@ -531,23 +732,32 @@ const playNewOrderSound = () => {
     if ('speechSynthesis' in window) {
       const speech = new SpeechSynthesisUtterance('您有新的订单请及时处理');
       speech.lang = 'zh-CN';
-      speech.rate = 0.9;
-      speech.pitch = 1.1;
+      speech.rate = 0.95; // 稍微加快语速，更自然
+      speech.pitch = 1.2; // 提高音调，更甜美年轻
       speech.volume = 1;
       
-      // 设置甜妹声音（选择女性声音）
+      // 设置接近豆包的甜美音色
       let voices = window.speechSynthesis.getVoices();
-      let femaleVoice = voices.find(voice => 
-        voice.lang === 'zh-CN' && (voice.name.includes('Female') || voice.name.includes('女') || voice.gender === 'female')
+      
+      // 优先选择接近豆包音色的中文女声
+      let preferredVoice = voices.find(voice => 
+        voice.lang === 'zh-CN' && 
+        (voice.name.includes('Yaoyao') || voice.name.includes('Zira') || 
+         voice.name.includes('Huihui') || voice.name.includes('Tingting') ||
+         voice.name.includes('Female') || voice.name.includes('女') || 
+         voice.gender === 'female')
       );
       
-      // 如果没有找到女性声音，尝试使用默认中文声音
-      if (!femaleVoice) {
-        femaleVoice = voices.find(voice => voice.lang === 'zh-CN') || voices[0];
+      // 如果没有找到首选声音，尝试使用其他中文声音
+      if (!preferredVoice) {
+        preferredVoice = voices.find(voice => voice.lang === 'zh-CN') || 
+                        voices.find(voice => voice.lang.includes('zh')) || 
+                        voices[0];
       }
       
-      if (femaleVoice) {
-        speech.voice = femaleVoice;
+      if (preferredVoice) {
+        speech.voice = preferredVoice;
+        console.log('使用的语音:', preferredVoice.name, preferredVoice.lang);
       }
       
       // 检查当前是否有正在播放的语音，如果有则不重复播放
@@ -556,34 +766,43 @@ const playNewOrderSound = () => {
       }
     }
   } catch (error) {
-    console.error('播放语音提示失败:', error);
+    console.error('播放默认语音失败:', error);
   }
 };
 
-// 播放超时订单语音提示
-const playTimeoutOrderSound = () => {
+// 播放默认超时订单语音
+const playDefaultTimeoutOrderSound = () => {
   try {
     // 使用Web Speech API播放超时提示
     if ('speechSynthesis' in window) {
       const speech = new SpeechSynthesisUtterance('注意！您有超时订单未接,请及时处理');
       speech.lang = 'zh-CN';
-      speech.rate = 0.9;
-      speech.pitch = 1.1;
+      speech.rate = 0.95; // 稍微加快语速，更自然
+      speech.pitch = 1.2; // 提高音调，更甜美年轻
       speech.volume = 1;
       
-      // 设置甜妹声音（选择女性声音）
+      // 设置接近豆包的甜美音色
       let voices = window.speechSynthesis.getVoices();
-      let femaleVoice = voices.find(voice => 
-        voice.lang === 'zh-CN' && (voice.name.includes('Female') || voice.name.includes('女') || voice.gender === 'female')
+      
+      // 优先选择接近豆包音色的中文女声
+      let preferredVoice = voices.find(voice => 
+        voice.lang === 'zh-CN' && 
+        (voice.name.includes('Yaoyao') || voice.name.includes('Zira') || 
+         voice.name.includes('Huihui') || voice.name.includes('Tingting') ||
+         voice.name.includes('Female') || voice.name.includes('女') || 
+         voice.gender === 'female')
       );
       
-      // 如果没有找到女性声音，尝试使用默认中文声音
-      if (!femaleVoice) {
-        femaleVoice = voices.find(voice => voice.lang === 'zh-CN') || voices[0];
+      // 如果没有找到首选声音，尝试使用其他中文声音
+      if (!preferredVoice) {
+        preferredVoice = voices.find(voice => voice.lang === 'zh-CN') || 
+                        voices.find(voice => voice.lang.includes('zh')) || 
+                        voices[0];
       }
       
-      if (femaleVoice) {
-        speech.voice = femaleVoice;
+      if (preferredVoice) {
+        speech.voice = preferredVoice;
+        console.log('使用的语音:', preferredVoice.name, preferredVoice.lang);
       }
       
       // 检查当前是否有正在播放的语音，如果有则不重复播放
@@ -593,6 +812,30 @@ const playTimeoutOrderSound = () => {
         lastTimeoutAnnounceTime = Date.now();
       }
     }
+  } catch (error) {
+    console.error('播放默认超时提示失败:', error);
+  }
+};
+
+// 播放超时订单语音提示
+const playTimeoutOrderSound = () => {
+  try {
+    // 优先使用自定义音频
+    if (customAudios.value.timeoutOrder) {
+      const audio = new Audio(customAudios.value.timeoutOrder);
+      audio.volume = volumeLevel.value;
+      audio.play().catch(err => {
+        console.error('播放自定义音频失败:', err);
+        // 失败时回退到默认语音
+        playDefaultTimeoutOrderSound();
+      });
+      // 更新上次播报时间
+      lastTimeoutAnnounceTime = Date.now();
+      return;
+    }
+    
+    // 播放默认语音
+    playDefaultTimeoutOrderSound();
   } catch (error) {
     console.error('播放超时提示失败:', error);
   }
@@ -807,6 +1050,37 @@ onUnmounted(() => {
 
 .refresh-button:active {
   transform: translateY(0);
+}
+
+.settings-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 20px;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 8px;
+  transition: all 0.3s ease;
+}
+
+.settings-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(103, 116, 142, 0.4);
+}
+
+.settings-button:active {
+  transform: translateY(0);
+}
+
+/* 密码对话框样式 */
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.el-input {
+  width: 100%;
 }
 
 .refresh-button .el-icon {
@@ -1317,6 +1591,119 @@ onUnmounted(() => {
 .items-table td:first-child {
   font-weight: 500;
   color: #303133;
+}
+
+/* 音频设置面板样式 */
+.audio-settings-panel {
+  background-color: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.settings-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.settings-header h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #303133;
+  font-weight: bold;
+}
+
+.close-button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 14px;
+  background-color: #909399;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.close-button:hover {
+  background-color: #a6a9ad;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(144, 147, 153, 0.4);
+}
+
+.close-button:active {
+  transform: translateY(0);
+}
+
+.close-button .el-icon {
+  font-size: 16px;
+}
+
+.audio-setting-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.audio-setting-item label {
+  min-width: 120px;
+  font-size: 14px;
+  color: #606266;
+  font-weight: 500;
+}
+
+.audio-setting-item input[type="file"] {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid #dcdfe6;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.test-button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: #409eff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.test-button:hover {
+  background-color: #66b1ff;
+  transform: translateY(-1px);
+}
+
+.remove-button {
+  padding: 6px 12px;
+  font-size: 12px;
+  background-color: #f56c6c;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.remove-button:hover {
+  background-color: #f78989;
+  transform: translateY(-1px);
+}
+
+.audio-status {
+  font-size: 12px;
+  color: #67c23a;
+  font-weight: 500;
 }
 
 /* 图片预览相关样式 */
