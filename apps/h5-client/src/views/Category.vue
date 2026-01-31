@@ -184,13 +184,11 @@
             <div class="selected-item-info">
               <div class="selected-item-name">
                 <span class="item-name-text" @click="goToProductDetailById(item.productId)">{{ item.name }}</span>
-                <div v-if="item.specs?.text" class="change-specs-btn" @click="editSpecs(item)">
-                  {{ $t('common.edit') }}
-                </div>
               </div>
               <!-- 只有当specs有实际内容时才显示 -->
-              <div class="selected-item-specs" v-if="item.specs?.text">
-                {{ item.specs.text }}
+              <div class="specs-row" v-if="item.specs?.text">
+                <div class="selected-item-specs">{{ item.specs.text }}</div>
+                <div class="change-specs-btn" @click="editSpecs(item)">{{ $t('common.edit') }}</div>
               </div>
               <div class="selected-item-price">¥{{ Number(item.price).toFixed(2) }}</div>
             </div>
@@ -1768,12 +1766,19 @@ onUnmounted(() => {
         .selected-item-specs {
           font-size: 12px;
           color: #999;
-          margin-bottom: 4px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
           display: flex;
           align-items: center;
+          flex: 1;
+        }
+        
+        .specs-row {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          margin-bottom: 4px;
           gap: 8px;
         }
         
@@ -1800,7 +1805,6 @@ onUnmounted(() => {
         align-items: center;
         justify-content: center;
         white-space: nowrap;
-        margin-left: 0px;
         flex-shrink: 0;
         
         &:hover {
@@ -1813,24 +1817,7 @@ onUnmounted(() => {
         }
       }
       
-      /* 商品名称行样式 */
-      .selected-item-name {
-        display: flex;
-        align-items: flex-start;
-        justify-content: space-between;
-        flex-wrap: wrap;
-        gap: 4px;
-        
-        .item-name-text {
-          flex: 1;
-          overflow: hidden;
-          line-height: 1.3;
-          max-height: 2.6em;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        }
-      }
+
       
       /* 数量控制 */
       .quantity-controls {
