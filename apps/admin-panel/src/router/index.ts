@@ -18,6 +18,7 @@ const routes = [
       { path: 'products', name: 'ProductManage', component: () => import('@/views/ProductManage.vue') },
       { path: 'categories', name: 'CategoryManage', component: () => import('@/views/CategoryManage.vue') },
       { path: 'orders', name: 'OrderManage', component: () => import('@/views/OrderManage.vue') },
+      { path: 'order-test', name: 'OrderTest', component: () => import('@/views/SimpleOrderTest.vue') },
       { path: 'order-display', name: 'OrderDisplay', component: () => import('@/views/OrderDisplayScreen.vue') },
       { path: 'users', name: 'UserManage', component: () => import('@/views/UserManage.vue') },
       { path: 'banners', name: 'BannerManage', component: () => import('@/views/BannerManage.vue') },

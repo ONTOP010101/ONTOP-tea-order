@@ -63,4 +63,17 @@ export class OrderGateway implements OnGatewayConnection, OnGatewayDisconnect {
       timestamp: new Date(),
     });
   }
+
+  // 推送打印任务到所有连接的客户端
+  notifyPrintOrder(order: any, printContent: string) {
+    this.server.emit('print-order', {
+      type: 'PRINT_ORDER',
+      data: {
+        order,
+        printContent
+      },
+      timestamp: new Date(),
+    });
+    console.log(`打印任务推送: ${order.order_no}`);
+  }
 }

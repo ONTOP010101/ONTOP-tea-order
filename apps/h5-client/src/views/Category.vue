@@ -74,7 +74,7 @@
                     }
                   }"
                 >
-                  {{ getCategoryName(categories.find(cat => cat.id === product._categoryId) || {}) }}
+                  {{ getCategoryName(product.category || categories.find(cat => cat.id === product._categoryId) || {}) }}
                 </div>
                 <div
                   class="product-item"
@@ -238,6 +238,7 @@ import { showToast, showLoadingToast, closeToast } from 'vant'
 import { getCategories, getProductsByCategory, searchProducts, getProductList } from '@/api/product'
 import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/stores/cart'
+import { clearCacheByUrl } from '@/utils/request'
 import type { Product, Category } from '@/types'
 
 const router = useRouter()
@@ -254,6 +255,11 @@ const selectedCategoryId = ref<number | null>(null)
 const showSelectedProducts = ref(false)
 const loading = ref(false)
 const loadingMore = ref(false)
+
+// 无限滚动相关
+const currentCategoryIndex = ref(0)
+const loadedCategories = ref<Set<number>>(new Set())
+const isAllCategoriesLoaded = ref(false)
 
 // 过滤后的商品
 const filteredProducts = computed(() => {
@@ -275,6 +281,9 @@ const filteredProducts = computed(() => {
   })
 })
 
+// 防抖定时器
+let searchDebounceTimer: number | null = null
+
 // 搜索处理
 const handleSearch = async () => {
   if (searchKeyword.value.trim()) {
@@ -283,30 +292,44 @@ const handleSearch = async () => {
 }
 
 // 输入变化处理
-const handleInput = async (value: string) => {
-  // 如果搜索关键词为空，恢复显示分类商品
+const handleInput = (value: string) => {
+  // 清除之前的防抖定时器
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer)
+  }
+  
+  // 如果搜索关键词为空，立即恢复显示分类商品
   if (!value || typeof value !== 'string' || !value.trim()) {
     isSearching.value = false
     // 重新加载当前分类的商品
     if (selectedCategoryId.value) {
-      await loadProducts(selectedCategoryId.value)
+      loadProducts(selectedCategoryId.value)
     }
   } else {
-    // 实时搜索：当输入内容不为空时，触发搜索
-    await performSearch()
+    // 防抖处理：当用户停止输入300毫秒后再触发搜索
+    searchDebounceTimer = window.setTimeout(async () => {
+      await performSearch()
+    }, 300)
   }
 }
 
 // 执行搜索
 const performSearch = async () => {
-  if (!searchKeyword.value.trim()) return
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) return
   
   try {
     loading.value = true
     isSearching.value = true
     
+    // 重置分页状态
+    currentCategoryIndex.value = 0
+    loadedCategories.value.clear()
+    isAllCategoriesLoaded.value = false
+    products.value = []
+    
     // 显式传递categoryId为undefined，确保搜索所有分类
-    const response = await searchProducts(searchKeyword.value, { categoryId: undefined })
+    const response = await searchProducts(keyword, { categoryId: undefined })
     
     // 检查response是否存在
     if (!response) {
@@ -319,7 +342,7 @@ const performSearch = async () => {
       // 为搜索结果添加_categoryId属性并按分类ID排序
       const productsWithCategory = response.map(product => ({
         ...product,
-        _categoryId: product.category_id || product.categoryId || product.category?.id || 0
+        _categoryId: product.category_id || product.category?.id || 0
       })).sort((a, b) => {
         // 先按分类ID排序，再按商品ID排序
         if (a._categoryId !== b._categoryId) {
@@ -328,12 +351,17 @@ const performSearch = async () => {
         return a.id - b.id
       })
       products.value = productsWithCategory
+      // 标记所有分类为已加载（因为搜索结果已经包含所有分类的商品）
+      const uniqueCategoryIds = [...new Set(productsWithCategory.map(p => p._categoryId))]
+      uniqueCategoryIds.forEach(id => loadedCategories.value.add(id))
+      isAllCategoriesLoaded.value = true
       return
     }
     
     // 如果所有检查都失败，则返回空列表
     products.value = []
   } catch (error) {
+    console.error('搜索失败:', error)
     showToast(t('common.error'))
     // 搜索失败时重置状态
     isSearching.value = false
@@ -391,7 +419,7 @@ watch(
 watch(
   selectedCategoryId,
   async (newCategoryId) => {
-    if (newCategoryId !== null) {
+    if (newCategoryId !== null && !isSearching.value) {
       // 确保categories数组已经被加载
       if (categories.value.length === 0) {
         // 等待categories数组加载完成
@@ -430,10 +458,7 @@ watch(
   { deep: true }
 )
 
-// 无限滚动相关
-const currentCategoryIndex = ref(0)
-const loadedCategories = ref<Set<number>>(new Set())
-const isAllCategoriesLoaded = ref(false)
+
 
 // 导航相关
 const active = ref(0)
@@ -640,36 +665,22 @@ const updateCartItem = (product: Product, quantity: number) => {
 const getCategoryName = (category: any) => {
   if (!category) return ''
   
-  console.log('当前语言:', locale.value)
-  console.log('分类数据:', category)
-  console.log('分类名称字段检查:')
-  console.log('  category.name:', category.name)
-  console.log('  category.name_en:', category.name_en)
-  console.log('  category.name_ar:', category.name_ar)
-  console.log('  category.name_es:', category.name_es)
-  console.log('  category.name_pt:', category.name_pt)
-  
   // 优先使用对应语言的分类名称
   const lang = locale.value
   if ((lang === 'en-US' || lang === 'en') && category.name_en) {
-    console.log('使用英语名称:', category.name_en)
     return category.name_en
   }
   if ((lang === 'ar-SA' || lang === 'ar') && category.name_ar) {
-    console.log('使用阿拉伯语名称:', category.name_ar)
     return category.name_ar
   }
   if ((lang === 'es-ES' || lang === 'es') && category.name_es) {
-    console.log('使用西班牙语名称:', category.name_es)
     return category.name_es
   }
   if ((lang === 'pt-BR' || lang === 'pt') && category.name_pt) {
-    console.log('使用葡萄牙语名称:', category.name_pt)
     return category.name_pt
   }
   
   // 如果没有对应语言的分类名称，使用默认名称
-  console.log('使用默认名称:', category.name || '')
   return category.name || ''
 }
 
@@ -765,12 +776,19 @@ const loadProducts = async (categoryId: number, append: boolean = false) => {
 
 // 加载更多商品
 const loadMoreProducts = async () => {
-  // 如果正在搜索，不加载更多商品
-  if (isSearching.value || loadingMore.value || isAllCategoriesLoaded.value || categories.value.length === 0) {
+  // 如果正在加载更多、所有分类已加载或分类列表为空，不加载更多商品
+  if (loadingMore.value || isAllCategoriesLoaded.value || categories.value.length === 0) {
     return
   }
   
   try {
+    // 如果正在搜索，不加载更多商品（搜索结果已一次性加载完毕）
+    if (isSearching.value) {
+      // 搜索状态下，标记所有分类为已加载，防止重复加载
+      isAllCategoriesLoaded.value = true
+      return
+    }
+    
     // 找到下一个未加载的分类
     let nextCategoryIndex = currentCategoryIndex.value + 1
     
@@ -811,21 +829,19 @@ const selectCategory = (category: Category) => {
   loadedCategories.value.clear()
   isAllCategoriesLoaded.value = false
   
-  // 如果有缓存，直接使用，否则请求
-  if (productCache.value.has(category.id)) {
-    products.value = productCache.value.get(category.id)?.map(product => ({
-      ...product,
-      _categoryId: category.id
-    })) || []
-    loading.value = false
-    loadedCategories.value.add(category.id)
-  } else {
-    loadProducts(category.id)
-  }
+  // 清除产品缓存，确保获取最新数据
+  productCache.value.delete(category.id)
+  // 直接请求最新数据
+  loadProducts(category.id)
 }
 
 // 选择所有分类
 const selectAllCategories = async () => {
+  // 搜索状态下不重置搜索状态
+  if (isSearching.value) {
+    return
+  }
+  
   selectedCategoryId.value = null
   
   // 重置搜索状态
@@ -842,6 +858,8 @@ const selectAllCategories = async () => {
   loading.value = true
   
   try {
+    // 清除产品缓存，确保获取最新数据
+    clearCacheByUrl('/products')
     // 直接调用API获取所有商品，不分页
     const response = await getProductList({ pageSize: 1000 })
     if (response && response.list) {
@@ -850,6 +868,9 @@ const selectAllCategories = async () => {
         ...product,
         _categoryId: product.category_id || product.category?.id || 0
       })).sort((a, b) => {
+        // 特殊处理：将火腿分类的商品放在最前面
+        if (a._categoryId === 5) return -1
+        if (b._categoryId === 5) return 1
         // 先按分类ID排序，再按商品ID排序
         if (a._categoryId !== b._categoryId) {
           return a._categoryId - b._categoryId
@@ -874,9 +895,19 @@ const loadCategories = async () => {
       message: t('common.loading'),
       forbidClick: true,
     })
+    // 清除分类缓存，确保获取最新数据
+    clearCacheByUrl('/categories')
     const data = await getCategories()
-    // 对分类进行排序，按照 sort 字段降序，created_at 字段升序
+    console.log('获取到的分类数据:', data)
+    console.log('分类数量:', data?.length || 0)
+    // 检查是否包含"火腿"分类
+    const hamCategory = data?.find((cat: any) => cat.name === '火腿')
+    console.log('火腿分类:', hamCategory)
+    // 对分类进行排序，将"火腿"分类放在最前面，然后按照 sort 字段降序，created_at 字段升序
     categories.value = (data || []).sort((a, b) => {
+      // 特殊处理：将"火腿"分类放在最前面
+      if (a.name === '火腿') return -1
+      if (b.name === '火腿') return 1
       // 先按 sort 字段降序排序
       if (a.sort !== b.sort) {
         return b.sort - a.sort
@@ -884,6 +915,12 @@ const loadCategories = async () => {
       // 如果 sort 相同，按 created_at 字段升序排序
       return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     })
+    console.log('排序后的分类:', categories.value)
+    console.log('排序后的分类数量:', categories.value.length)
+    // 检查排序后的分类中是否包含"火腿"分类
+    const sortedHamCategory = categories.value.find((cat: any) => cat.name === '火腿')
+    console.log('排序后的火腿分类:', sortedHamCategory)
+    console.log('排序后的第一个分类:', categories.value[0])
     // 只有当没有选中的分类时，才默认选择全部分类
     // 这样可以保持路由参数设置的分类 ID
     if (selectedCategoryId.value === null) {
@@ -1018,6 +1055,9 @@ onMounted(() => {
   // 设置Intersection Observer监测分类分隔线
   observer = new IntersectionObserver(
     (entries) => {
+      // 搜索状态下不更新分类选择
+      if (isSearching.value) return
+      
       // 过滤出可见的分类分隔线
       const visibleEntries = entries.filter(entry => entry.isIntersecting)
       

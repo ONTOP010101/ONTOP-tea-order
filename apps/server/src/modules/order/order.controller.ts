@@ -20,7 +20,8 @@ export class OrderController {
   // 管理端：获取所有订单（不需要JWT验证）
   @Get('admin/all')
   findAll(@Query() query: any) {
-    return this.orderService.findAll(query);
+    // 管理后台请求：设置requestType为admin，不添加时间限制
+    return this.orderService.findAll({ ...query, requestType: 'admin' });
   }
 
   // 用户端：创建订单
@@ -65,4 +66,19 @@ export class OrderController {
   exportOrders(@Query() query: any, @Response() res) {
     return this.orderService.exportOrders(query, res);
   }
+
+  // 测试打印功能
+  @Get('test/print')
+  async testPrint() {
+    try {
+      console.log('开始测试打印功能，格式: txt');
+      await this.orderService.testPrintFormat();
+      return { code: 200, message: '打印测试成功', data: null };
+    } catch (error) {
+      console.error('打印测试失败:', error);
+      return { code: 500, message: '打印测试失败', data: { error: error.message } };
+    }
+  }
+
+
 }

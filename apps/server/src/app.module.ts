@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { ProductModule } from './modules/product/product.module';
@@ -12,8 +13,10 @@ import { UploadModule } from './modules/upload/upload.module';
 import { TranslationModule } from './translation/translation.module';
 import { SpecModule } from './modules/spec/spec.module';
 
+
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     // 配置模块
     ConfigModule.forRoot({
       isGlobal: true,

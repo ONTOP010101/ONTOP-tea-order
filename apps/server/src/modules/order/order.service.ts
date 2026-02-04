@@ -1,12 +1,18 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { Cron } from '@nestjs/schedule';
 import { Order } from '../../entities/order.entity';
 import { OrderGateway } from '../websocket/order.gateway';
 import { ProductService } from '../product/product.service';
 import { SpecService } from '../spec/spec.service';
 import { UserService } from '../user/user.service';
 import dayjs from 'dayjs';
+
+// 导入node-printer库
+const printer = require('node-printer');
+const fs = require('fs');
+const path = require('path');
 
 @Injectable()
 export class OrderService {
@@ -154,11 +160,20 @@ export class OrderService {
 
       // WebSocket实时推送新订单 - 添加try-catch防止WebSocket错误影响订单创建
       try {
-        console.log('🔔 准备推送新订单到WebSocket:', savedOrder.order_no);
+        console.log('🔔 准备推送新订单到WebSocket:', savedOrder);
         this.orderGateway.notifyNewOrder(savedOrder);
         console.log('✅ WebSocket推送成功');
       } catch (wsError: any) {
         console.error('❌ WebSocket推送失败:', wsError.message, wsError.stack);
+      }
+
+      // 自动触发服务器端打印 - 添加try-catch防止打印错误影响订单创建
+      try {
+        console.log('🖨️  准备执行服务器端打印:', savedOrder);
+        await this.printOrder(savedOrder);
+        console.log('✅ 服务器端打印成功');
+      } catch (printError: any) {
+        console.error('❌ 服务器端打印失败:', printError.message, printError.stack);
       }
 
       return savedOrder;
@@ -428,7 +443,7 @@ export class OrderService {
 
   // 管理端查询所有订单，支持按session_id筛选
   async findAll(params: any) {
-    const { page = 1, pageSize = 20, status, sessionId } = params;
+    const { page = 1, pageSize = 20, status, sessionId, requestType = 'frontend' } = params;
     const query = this.orderRepository.createQueryBuilder('order')
       .select([
         'order.id',
@@ -459,10 +474,19 @@ export class OrderService {
       }
     }
 
-    // 添加时间过滤，只返回48小时内的订单
-    const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() - 48);
-    query.andWhere('order.created_at >= :expirationTime', { expirationTime });
+    // 根据请求类型添加不同的时间过滤
+    if (requestType !== 'admin') {
+      const expirationTime = new Date();
+      if (requestType === 'display') {
+        // 订单显示屏：只返回24小时内的订单
+        expirationTime.setHours(expirationTime.getHours() - 24);
+      } else {
+        // 前端：返回7天内的订单
+        expirationTime.setDate(expirationTime.getDate() - 7);
+      }
+      query.andWhere('order.created_at >= :expirationTime', { expirationTime });
+    }
+    // 管理后台：不添加时间过滤，返回所有订单
 
     const [list, total] = await query
       .orderBy('order.created_at', 'DESC')
@@ -484,15 +508,380 @@ export class OrderService {
     };
   }
 
-  // 清理过期订单（超过48小时）
+  // 清理过期订单（超过7天）
   async clearExpiredOrders(): Promise<void> {
     const expirationTime = new Date();
-    expirationTime.setHours(expirationTime.getHours() - 48);
+    expirationTime.setDate(expirationTime.getDate() - 7);
     
     await this.orderRepository.createQueryBuilder()
       .delete()
       .from(Order)
       .where('created_at < :expirationTime', { expirationTime })
       .execute();
+  }
+  
+  // 清理订单显示屏过期订单（超过24小时）
+  async clearDisplayOrders(): Promise<void> {
+    const expirationTime = new Date();
+    expirationTime.setHours(expirationTime.getHours() - 24);
+    
+    await this.orderRepository.createQueryBuilder()
+      .delete()
+      .from(Order)
+      .where('created_at < :expirationTime', { expirationTime })
+      .execute();
+  }
+  
+  // 定时任务：每日0点自动清理订单显示屏的订单
+  @Cron('0 0 * * *') // 每日0点执行
+  async handleDailyCleanup() {
+    try {
+      console.log('🔄 开始每日0点清理订单显示屏过期订单...');
+      await this.clearDisplayOrders();
+      console.log('✅ 每日0点清理订单显示屏过期订单完成');
+    } catch (error) {
+      console.error('❌ 每日0点清理订单显示屏过期订单失败:', error);
+    }
+  }
+
+  // 格式化商品名称，直接返回
+  private formatProductName(name: string, maxNameLength: number = 7): string {
+    if (!name) {
+      return '未知商品';
+    }
+    
+    // 直接返回商品名称，不添加任何填充
+    return name;
+  }
+
+  // 计算订单中商品名称的最大长度
+  private getMaxNameLength(items: any[]): number {
+    let maxLength = 2; // 最小长度为2
+    items.forEach(item => {
+      const name = item.name || '';
+      if (name.length > maxLength) {
+        maxLength = name.length;
+      }
+    });
+    return maxLength;
+  }
+
+
+
+
+
+  // 生成打印内容 - 按照用户详细要求的格式
+  private generatePrintContent(order: any): string {
+    const items = order.items || [];
+    const orderNo = order.order_no;
+    const createdAt = new Date(order.created_at);
+    const dateStr = new Date(order.created_at).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    });
+
+    // 定义分隔线
+    const divider = '========================';
+    
+    // 构建打印内容
+    let content = '';
+    content += '\n';
+    content += `${divider}\n`;
+    
+    // ON TOP 和 悦翔茶歇，居中对齐
+    const centerIndent = ' '.repeat(22);
+    content += `${centerIndent}ON TOP\n`;
+    content += `${centerIndent}悦翔茶歇\n`;
+    content += `${divider}\n`;
+    
+    // 订单号: 左对齐，订单号值右对齐
+    const orderNoIndent = ' '.repeat(18);
+    content += `订单号: ${orderNoIndent}${orderNo}\n`;
+    content += `${divider}\n`;
+    
+    // 商品明细
+    content += `商品明细\n`;
+    content += `${divider}\n`;
+
+    // 添加商品明细
+    items.forEach((item: any) => {
+      const name = item.name || '未知商品';
+      const quantity = item.quantity || 1;
+      
+      // 格式化商品名称和数量，使用"商品名称  X数量"格式
+      content += `${name}  X${quantity}\n`;
+      
+      // 显示规格组信息
+      if (item.specs && item.specs.text) {
+        content += `温度:${item.specs.text}\n`;
+      }
+    });
+
+    content += `${divider}\n`;
+    // 备注
+    content += `备注:\n`;
+    content += `${order.remark || '无'}\n`;
+    content += `${divider}\n`;
+    
+    // 时间，右对齐
+    const timeIndent = ' '.repeat(16);
+    content += `时间: ${timeIndent}${dateStr}\n`;
+    content += '\n\n\n';
+
+    return content;
+  }
+
+  // 测试打印格式
+  async testPrintFormat(): Promise<void> {
+    console.log('开始测试打印格式...');
+    console.log('测试格式: txt');
+    
+    try {
+      // 创建测试订单数据
+      const testOrder = {
+        order_no: 'TEST001',
+        created_at: new Date(),
+        items: [
+          {
+            name: '绿茶',
+            quantity: 1
+          },
+          {
+            name: '老红糖生姜鲜奶',
+            quantity: 1
+          }
+        ],
+        remark: '测试订单'
+      };
+      
+      // 生成TXT打印内容
+      console.log('生成TXT打印内容...');
+      const printContent = this.generatePrintContent(testOrder);
+      console.log('测试打印内容:');
+      console.log(printContent);
+      
+      // 保存测试文件
+      const tempFilePath = path.join(__dirname, `test_order_format.txt`);
+      fs.writeFileSync(tempFilePath, printContent);
+      console.log('测试文件保存成功:', tempFilePath);
+      
+      console.log('TXT打印测试完成');
+    } catch (error) {
+      console.error('测试打印格式失败:', error);
+      console.error('错误堆栈:', error.stack);
+    } finally {
+      console.log('测试打印格式方法执行完成');
+    }
+  }
+
+  // 使用ESC/POS命令打印
+  private async printWithEscPos(order: any): Promise<void> {
+    console.log('====================================');
+    console.log('开始ESC/POS打印流程，订单号:', order.order_no);
+    console.log('====================================');
+    
+    try {
+      const escpos = require('escpos');
+      const devices = escpos.USB.findPrinter();
+      
+      console.log('找到的打印机设备:', devices);
+      
+      if (devices && devices.length > 0) {
+        console.log('使用USB连接打印机');
+        const device = new escpos.USB();
+        const printer = new escpos.Printer(device);
+        
+        device.open(() => {
+          console.log('✓ 打印机连接成功');
+          
+          // 初始化打印机
+          printer
+            .font('a')
+            .align('ct')
+            .style('bu')
+            .size(1, 1)
+            .text('ON TOP')
+            .text('悦翔茶歇')
+            .align('lt')
+            .style('normal')
+            .size(1, 0)
+            // 调整行高为30点，恢复默认行高
+            .setLineHeight(30)
+            .text('--------------------------------');
+          
+          // 打印订单号
+          printer
+            .text(`订单号: ${order.order_no}`)
+            .text('--------------------------------');
+          
+          // 打印商品明细标题
+          printer
+            .text('商品名称                  数量')
+            .text('--------------------------------');
+          
+          // 打印商品明细
+          const items = order.items || [];
+          items.forEach((item: any) => {
+            const name = item.name || '未知商品';
+            const quantity = item.quantity || 1;
+            
+            // 使用简单可靠的对齐方式
+            const maxNameLength = 12;
+            let paddedName = name;
+            
+            // 确保商品名称长度一致
+            if (name.length < maxNameLength) {
+              paddedName = name.padEnd(maxNameLength, ' ');
+            } else if (name.length > maxNameLength) {
+              paddedName = name.substring(0, maxNameLength);
+            }
+            
+            // 格式化商品名称和数量，使用"商品名称  X数量"格式
+            printer.text(`${name}  X${quantity}`);
+            
+            // 打印规格信息
+            if (item.specs && item.specs.text) {
+              printer.text(`温度: ${item.specs.text}`);
+            }
+          });
+          
+          // 打印订单尾部信息
+          printer
+            .text('--------------------------------')
+            .text('备注:')
+            .text(order.remark || '无')
+            .text('--------------------------------');
+          
+          // 打印时间
+          const dateStr = new Date(order.created_at).toLocaleString('zh-CN');
+          printer.text(`时间: ${dateStr}`);
+          
+          // 执行切纸并关闭连接
+          printer
+            .cut()
+            .close();
+          
+          console.log('✓ ESC/POS打印流程完成');
+        });
+      } else {
+        console.log('未找到USB打印机，尝试使用网络打印机');
+        // 尝试使用网络打印机
+        const device = new escpos.Network('localhost');
+        const printer = new escpos.Printer(device);
+        
+        device.open(() => {
+          console.log('✓ 网络打印机连接成功');
+          
+          // 初始化打印机
+          printer
+            .font('a')
+            .align('ct')
+            .style('bu')
+            .size(1, 1)
+            .text('ON TOP')
+            .text('悦翔茶歇')
+            .align('lt')
+            .style('normal')
+            .size(1, 0)
+            // 调整行高为30点，恢复默认行高
+            .setLineHeight(30)
+            .text('--------------------------------');
+          
+          // 打印订单号
+          printer
+            .text(`订单号: ${order.order_no}`)
+            .text('--------------------------------');
+          
+          // 打印商品明细标题
+          printer
+            .text('商品名称                  数量')
+            .text('--------------------------------');
+
+          
+          // 打印商品明细
+          const items = order.items || [];
+          items.forEach((item: any) => {
+            const name = item.name || '未知商品';
+            const quantity = item.quantity || 1;
+            
+            // 使用简单可靠的对齐方式
+            const maxNameLength = 12;
+            let paddedName = name;
+            
+            // 确保商品名称长度一致
+            if (name.length < maxNameLength) {
+              paddedName = name.padEnd(maxNameLength, ' ');
+            } else if (name.length > maxNameLength) {
+              paddedName = name.substring(0, maxNameLength);
+            }
+            
+            // 格式化商品名称和数量，确保数量对齐
+            const quantityStr = `× ${quantity}`;
+            printer.text(`${paddedName}        ${quantityStr}`);
+            
+            // 打印规格信息
+            if (item.specs && item.specs.text) {
+              printer.text(`温度: ${item.specs.text}`);
+            }
+          });
+          
+          // 打印订单尾部信息
+          printer
+            .text('--------------------------------')
+            .text('备注:')
+            .text(order.remark || '无')
+            .text('--------------------------------');
+          
+          // 打印时间
+          const dateStr = new Date(order.created_at).toLocaleString('zh-CN');
+          printer.text(`时间: ${dateStr}`);
+          
+          // 执行切纸并关闭连接
+          printer
+            .cut()
+            .close();
+          
+          console.log('✓ ESC/POS打印流程完成');
+        });
+      }
+    } catch (error) {
+      console.error('✗ ESC/POS打印过程中发生错误:', error);
+      throw error;
+    }
+  }
+
+  // 执行打印
+  async printOrder(order: any, format: 'txt' = 'txt'): Promise<void> {
+    try {
+      console.log('开始执行订单打印...');
+      console.log('打印格式:', format);
+      
+      // 生成打印内容
+      const printContent = this.generatePrintContent(order);
+      console.log('打印内容:', printContent);
+      
+      // 通过WebSocket推送打印任务到客户端
+      try {
+        this.orderGateway.notifyPrintOrder(order, printContent);
+        console.log('✅ WebSocket打印任务推送成功');
+        console.log('📡 打印任务已发送到所有连接的客户端');
+        console.log('👥 客户端将负责执行实际的打印操作');
+        console.log('🎯 分布式打印模式已启用');
+      } catch (wsError: any) {
+        console.error('❌ WebSocket打印任务推送失败:', wsError.message);
+        console.error('⚠️  请检查WebSocket服务是否正常运行');
+        console.error('⚠️  请检查客户端是否已连接');
+      }
+      
+      // 服务器端不再执行本地打印
+      // 所有打印操作由客户端负责
+      console.log('✅ 服务器端打印任务分发完成');
+    } catch (error) {
+      console.error('打印过程中发生错误:', error);
+    }
   }
 }

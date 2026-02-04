@@ -1,0 +1,24 @@
+{
+  "serverUrl": "http://localhost:3003",
+  "printerType": "txt",
+  "escpos": {
+    "type": "usb",
+    "network": {
+      "host": "localhost",
+      "port": 9100
+    }
+  },
+  "log": {
+    "level": "info",
+    "dir": "logs",
+    "maxFiles": 7
+  },
+  "reconnection": {
+    "attempts": "infinity",
+    "delay": 1000,
+    "delayMax": 5000
+  },
+  "heartbeat": {
+    "interval": 5000
+  }
+}

@@ -571,8 +571,9 @@ const loadOrders = async () => {
     loading.value = true
     // 使用相对路径，通过vite.config.ts中的代理配置访问服务器
     // 注意：这里获取所有订单，明确不添加sessionId参数，确保能看到所有用户的订单
+    // 添加requestType参数，订单显示屏只显示24小时内的订单
     const response = await apiClient.get('/api/orders/admin/all', {
-      params: {}
+      params: { requestType: 'display' }
     })
     
     // 正确处理API响应格式：{ code: 200, data: { list: [], total: 0 } }
