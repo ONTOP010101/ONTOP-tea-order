@@ -19,13 +19,16 @@ export const createOrder = async (data: {
     sessionId: getSessionId()
   })
   
-  // 下单成功后自动打印
+  // 下单成功后不再自动打印
+  // 注释掉自动打印功能，避免在移动端浏览器（特别是 Safari）中弹出打印对话框
+  /*
   try {
     printOrder(order)
     console.log('订单打印成功:', order.order_no)
   } catch (error) {
     console.error('订单打印失败:', error)
   }
+  */
   
   return order
 }

@@ -11,7 +11,7 @@ export class ProductService {
   ) {}
 
   // 转换产品数据，将 sales 映射为 soldCount（H5前端兼容）
-  private transformProduct(product: any) {
+  public transformProduct(product: any) {
     if (!product) return product;
     
     // 处理图片字段，确保图片路径为相对路径，去除完整URL前缀

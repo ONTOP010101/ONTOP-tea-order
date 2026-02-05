@@ -30,7 +30,8 @@
               loading="lazy"
               width="100%"
               height="100%"
-              style="object-fit: cover;"
+              style="object-fit: cover; cursor: pointer;"
+              @click="previewImage(getProductImages(product), index)"
             />
             <!-- 售罄标识 -->
             <div v-if="product.stock <= 0" class="sold-out-overlay">
@@ -155,7 +156,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { showToast } from 'vant'
+import { showToast, showImagePreview } from 'vant'
 import { getProductDetail, getProductSpecGroups } from '@/api/product'
 import { useCartStore } from '@/stores/cart'
 import { useI18n } from 'vue-i18n'
@@ -667,11 +668,187 @@ const goCart = () => {
   router.push('/cart')
 }
 
+// 预览商品图片
+const previewImage = (images: string[], index: number) => {
+  const imageUrl = images[index]
+  if (imageUrl) {
+    try {
+      // 创建自定义图片预览
+      createCustomImagePreview(imageUrl)
+    } catch (error) {
+      console.error('图片预览失败:', error)
+      // 降级处理，直接打开图片
+      window.open(imageUrl, '_blank')
+    }
+  }
+}
+
+// 创建自定义图片预览
+const createCustomImagePreview = (imageUrl: string) => {
+  // 检查是否已有预览元素
+  const existingPreview = document.getElementById('custom-image-preview')
+  if (existingPreview) {
+    existingPreview.remove()
+  }
+  
+  // 创建预览容器
+  const previewContainer = document.createElement('div')
+  previewContainer.id = 'custom-image-preview'
+  previewContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.9);
+    touch-action: none;
+  `
+  
+  // 创建图片元素
+  const img = document.createElement('img')
+  img.src = imageUrl
+  img.style.cssText = `
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    cursor: pointer;
+  `
+  
+  // 创建关闭按钮
+  const closeBtn = document.createElement('div')
+  closeBtn.style.cssText = `
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 24px;
+    color: white;
+    font-weight: bold;
+  `
+  closeBtn.textContent = '×'
+  
+  // 添加点击事件
+  const closePreview = () => {
+    previewContainer.remove()
+  }
+  
+  previewContainer.addEventListener('click', closePreview)
+  img.addEventListener('click', closePreview)
+  closeBtn.addEventListener('click', closePreview)
+  
+  // 组装预览元素
+  previewContainer.appendChild(img)
+  previewContainer.appendChild(closeBtn)
+  
+  // 添加到body中
+  document.body.appendChild(previewContainer)
+}
+
+// 确保自定义预览样式存在
+const ensureCustomPreviewStyles = () => {
+  // 检查是否已有样式
+  if (document.getElementById('custom-preview-styles')) {
+    return
+  }
+  
+  // 创建样式元素
+  const style = document.createElement('style')
+  style.id = 'custom-preview-styles'
+  style.textContent = `
+    /* 确保图片预览在移动端正确显示 */
+    #custom-image-preview {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      z-index: 9999 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background-color: rgba(0, 0, 0, 0.9) !important;
+      touch-action: none !important;
+    }
+    
+    #custom-image-preview img {
+      max-width: 90vw !important;
+      max-height: 90vh !important;
+      object-fit: contain !important;
+      cursor: pointer !important;
+    }
+    
+    #custom-image-preview div {
+      position: absolute !important;
+      top: 20px !important;
+      right: 20px !important;
+      width: 40px !important;
+      height: 40px !important;
+      background-color: rgba(255, 255, 255, 0.3) !important;
+      border-radius: 50% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      font-size: 24px !important;
+      color: white !important;
+      font-weight: bold !important;
+    }
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      #custom-image-preview div {
+        top: 15px !important;
+        right: 15px !important;
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 22px !important;
+      }
+      
+      #custom-image-preview img {
+        max-width: 90vw !important;
+        max-height: 85vh !important;
+      }
+    }
+    
+    /* 小屏幕手机优化 */
+    @media (max-width: 480px) {
+      #custom-image-preview div {
+        top: 12px !important;
+        right: 12px !important;
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 20px !important;
+      }
+      
+      #custom-image-preview img {
+        max-width: 95vw !important;
+        max-height: 80vh !important;
+      }
+    }
+  `
+  
+  // 添加到head中
+  document.head.appendChild(style)
+}
+
 onMounted(() => {
   // 先初始化编辑模式，然后再加载商品
   // 这样可以确保在加载商品之前就已经进入编辑模式
   initEditMode()
   loadProduct()
+  // 确保自定义预览样式存在
+  ensureCustomPreviewStyles()
 })
 
 // 监听路由参数变化，重新检查编辑模式

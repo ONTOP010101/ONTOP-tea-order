@@ -15,16 +15,17 @@ const routes = [
     meta: { requiresAuth: false }
   },
   { path: '/', component: Layout, redirect: '/products', meta: { requiresAuth: true }, children: [
-      { path: 'products', name: 'ProductManage', component: () => import('@/views/ProductManage.vue') },
-      { path: 'categories', name: 'CategoryManage', component: () => import('@/views/CategoryManage.vue') },
-      { path: 'orders', name: 'OrderManage', component: () => import('@/views/OrderManage.vue') },
-      { path: 'order-test', name: 'OrderTest', component: () => import('@/views/SimpleOrderTest.vue') },
-      { path: 'order-display', name: 'OrderDisplay', component: () => import('@/views/OrderDisplayScreen.vue') },
-      { path: 'users', name: 'UserManage', component: () => import('@/views/UserManage.vue') },
-      { path: 'banners', name: 'BannerManage', component: () => import('@/views/BannerManage.vue') },
-      { path: 'specs', name: 'SpecManage', component: () => import('@/views/SpecManage.vue') }
-    ]
-  }
+         { path: 'products', name: 'ProductManage', component: () => import('@/views/ProductManage.vue') },
+         { path: 'categories', name: 'CategoryManage', component: () => import('@/views/CategoryManage.vue') },
+         { path: 'orders', name: 'OrderManage', component: () => import('@/views/OrderManage.vue') },
+         { path: 'order-test', name: 'OrderTest', component: () => import('@/views/SimpleOrderTest.vue') },
+         { path: 'order-display', name: 'OrderDisplay', component: () => import('@/views/OrderDisplayScreen.vue') },
+         { path: 'users', name: 'UserManage', component: () => import('@/views/UserManage.vue') },
+         { path: 'banners', name: 'BannerManage', component: () => import('@/views/BannerManage.vue') },
+         { path: 'specs', name: 'SpecManage', component: () => import('@/views/SpecManage.vue') },
+         { path: 'time-limited-products', name: 'TimeLimitedProducts', component: () => import('@/views/TimeLimitedProducts.vue') }
+       ]
+     }
 ]
 
 const router = createRouter({

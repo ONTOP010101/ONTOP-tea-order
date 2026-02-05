@@ -48,6 +48,10 @@
           <el-option label="全部分类" value="" />
           <el-option v-for="cat in categories" :key="cat.id" :label="cat.name" :value="cat.id" />
         </el-select>
+        <el-button type="info" @click="handleTimeLimitedProducts" style="margin-left: 10px">
+          <el-icon><Clock /></el-icon>
+          限时推荐商品管理
+        </el-button>
       </div>
 
       <!-- 商品列表 -->
@@ -339,12 +343,15 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type FormInstance } from 'element-plus'
-import { Search, Plus, Upload, MagicStick, Grid, List } from '@element-plus/icons-vue'
+import { Search, Plus, Upload, MagicStick, Grid, List, Clock } from '@element-plus/icons-vue'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 
 const API_BASE = '/api'  // 使用相对路径，通过Vite代理转发
+
+const router = useRouter()
 
 // 翻译映射表 - 5种语言全覆盖
 const translationMap: Record<string, { en: string; ar: string; es: string; pt: string }> = {
@@ -1090,6 +1097,12 @@ const addProducts = async (products: any[]): Promise<number> => {
   }
   
   return successCount
+}
+
+// 跳转到限时推荐商品管理
+const handleTimeLimitedProducts = () => {
+  // 跳转到限时推荐商品管理页面
+  router.push('/time-limited-products')
 }
 
 onMounted(() => {

@@ -508,16 +508,11 @@ export class OrderService {
     };
   }
 
-  // 清理过期订单（超过7天）
+  // 清理过期订单（已禁用自动清理，订单永久保存）
   async clearExpiredOrders(): Promise<void> {
-    const expirationTime = new Date();
-    expirationTime.setDate(expirationTime.getDate() - 7);
-    
-    await this.orderRepository.createQueryBuilder()
-      .delete()
-      .from(Order)
-      .where('created_at < :expirationTime', { expirationTime })
-      .execute();
+    // 禁用自动清理订单功能，订单将永久保存
+    // 如需清理订单，请手动执行
+    console.log('订单自动清理功能已禁用，订单将永久保存');
   }
   
   // 清理订单显示屏过期订单（超过24小时）

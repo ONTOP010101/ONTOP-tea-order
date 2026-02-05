@@ -83,7 +83,8 @@ const pageTitleMap: Record<string, string> = {
   '/order-display': '订单显示屏',
   '/users': '用户管理',
   '/banners': 'Banner管理',
-  '/specs': '规格管理'
+  '/specs': '规格管理',
+  '/time-limited-products': '限时推荐商品管理'
 }
 
 const pageTitle = computed(() => {

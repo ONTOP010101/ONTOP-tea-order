@@ -1,5 +1,5 @@
 <template>
-  <div class="category-page-wrapper">
+  <div class="category-page-wrapper" style="opacity: 1; background-color: #f5f5f5;">
     <div class="category-page">
       <van-nav-bar :title="$t('category.title')" />
       
@@ -29,9 +29,9 @@
         ></div>
       </div>
 
-      <div class="category-container">
+      <div class="category-container" style="display: flex; height: calc(100vh - var(--van-nav-bar-height) - 60px); background-color: #f5f5f5; overflow: hidden; position: relative;">
         <!-- 左侧分类列表 -->
-        <div class="category-sidebar">
+        <div class="category-sidebar" :class="{ 'hidden': isSidebarHidden }" style="width: 90px; background-color: #ffffff; border-right: 1px solid #e0e0e0; overflow-y: auto; display: flex; flex-direction: column; height: 100%;">
           <!-- 全部分类选项 -->
           <div
             class="category-item"
@@ -42,7 +42,7 @@
           </div>
           <!-- 其他分类选项 -->
           <div
-            v-for="category in categories"
+            v-for="(category, index) in categories"
             :key="category.id"
             class="category-item"
             :class="{ 'active': selectedCategoryId === category.id }"
@@ -51,9 +51,18 @@
             <div class="category-name">{{ getCategoryName(category) }}</div>
           </div>
         </div>
+        <!-- 收起按钮 -->
+        <div class="sidebar-toggle-btn" v-show="!isSidebarHidden" @click="toggleSidebar">
+          <van-icon name="arrow-left" size="12" />
+        </div>
+        <!-- 展开按钮 -->
+        <div class="expand-sidebar-btn" v-show="isSidebarHidden" @click="toggleSidebar">
+          <span style="font-size: 12px; font-weight: bold;">&gt;</span>
+        </div>
+
 
         <!-- 右侧商品内容 -->
-          <div class="category-content">
+          <div class="category-content" style="flex: 1; overflow-y: auto; background-color: #ffffff; padding-top: 0;">
             <!-- 商品列表 -->
             <div class="product-list">
             <div v-if="loading" class="loading-container">
@@ -76,58 +85,56 @@
                 >
                   {{ getCategoryName(product.category || categories.find(cat => cat.id === product._categoryId) || {}) }}
                 </div>
-                <div
-                  class="product-item"
-                >
-                <!-- 商品图片 -->
-                <div class="product-image" @click="goToCategory(product._categoryId)">
-                  <van-image
-                    :src="getImageUrl(product.image || product.images)"
-                    :alt="product.name"
-                    fit="cover"
-                    lazy
-                    @error="handleImageError"
-                  />
-                  <!-- 售罄标识 -->
-                  <div v-if="product.stock <= 0" class="sold-out-tag">{{ $t('product.soldOut') }}</div>
-                </div>
+                <div class="product-item">
+                  <!-- 商品图片 -->
+                  <div class="product-image">
+                    <img
+                      :src="getImageUrl(product.image || product.images)"
+                      :alt="product.name"
+                      style="width: 100%; height: 100%; object-fit: cover; cursor: pointer;"
+                      @error="handleImageError"
+                      @click="previewImage(product)"
+                    />
+                    <!-- 售罄标识 -->
+                    <div v-if="product.stock <= 0" class="sold-out-tag">{{ $t('product.soldOut') }}</div>
+                  </div>
 
-                <!-- 商品信息 -->
-                <div class="product-info">
-                  <div class="product-name" @click="goToProductDetail(product)">
-                    {{ getProductName(product) }}
+                  <!-- 商品信息 -->
+                  <div class="product-info">
+                    <div class="product-name" @click="goToProductDetail(product)">
+                      {{ getProductName(product) }}
+                    </div>
+                    <div class="product-stock">{{ $t('common.stock') }}{{ product.stock || 0 }}</div>
+                    <div class="product-price">¥{{ (typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2) }}</div>
                   </div>
-                  <div class="product-stock">{{ $t('common.stock') }}{{ product.stock || 0 }}</div>
-                  <div class="product-price">¥{{ (typeof product.price === 'number' ? product.price : parseFloat(product.price) || 0).toFixed(2) }}</div>
-                </div>
 
-                <!-- 商品操作区 -->
-                <div class="product-action">
-                  <!-- 已售罄状态 -->
-                  <div v-if="product.stock <= 0" class="sold-out-btn">
-                    {{ $t('product.soldOut') }}
-                  </div>
-                  <!-- 有规格组的商品 -->
-                  <div v-else-if="product.has_specs" class="select-spec-btn" @click="goToProductDetail(product)">
-                    {{ $t('product.selectSpec') }}
-                  </div>
-                  <!-- 数量控制状态 -->
-                  <div v-else-if="getProductQuantity(product.id) > 0" class="quantity-control">
-                    <div class="quantity-btn minus" @click="decreaseQuantity(product)">
-                      <van-icon name="minus" size="14" />
+                  <!-- 商品操作区 -->
+                  <div class="product-action">
+                    <!-- 已售罄状态 -->
+                    <div v-if="product.stock <= 0" class="sold-out-btn">
+                      {{ $t('product.soldOut') }}
                     </div>
-                    <div class="quantity">
-                      {{ getProductQuantity(product.id) }}
+                    <!-- 有规格组的商品 -->
+                    <div v-else-if="product.has_specs" class="select-spec-btn" @click="goToProductDetail(product)">
+                      {{ $t('product.selectSpec') }}
                     </div>
-                    <div class="quantity-btn plus" @click="(e) => increaseQuantity(product, e)">
-                      <van-icon name="plus" size="14" />
+                    <!-- 数量控制状态 -->
+                    <div v-else-if="getProductQuantity(product.id) > 0" class="quantity-control">
+                      <div class="quantity-btn minus" @click="decreaseQuantity(product)">
+                        <van-icon name="minus" size="14" />
+                      </div>
+                      <div class="quantity">
+                        {{ getProductQuantity(product.id) }}
+                      </div>
+                      <div class="quantity-btn plus" @click="(e) => increaseQuantity(product, e)">
+                        <van-icon name="plus" size="14" />
+                      </div>
+                    </div>
+                    <!-- 可直接购买状态 -->
+                    <div v-else class="add-to-cart-btn" @click="(e) => addToCart(product, e)">
+                      <van-icon name="plus" size="16" />
                     </div>
                   </div>
-                  <!-- 可直接购买状态 -->
-                  <div v-else class="add-to-cart-btn" @click="(e) => addToCart(product, e)">
-                    <van-icon name="plus" size="16" />
-                  </div>
-                </div>
                 </div>
               </template>
               
@@ -234,7 +241,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { showToast, showLoadingToast, closeToast } from 'vant'
+import { showToast, showLoadingToast, closeToast, showImagePreview } from 'vant'
 import { getCategories, getProductsByCategory, searchProducts, getProductList } from '@/api/product'
 import { useI18n } from 'vue-i18n'
 import { useCartStore } from '@/stores/cart'
@@ -255,6 +262,7 @@ const selectedCategoryId = ref<number | null>(null)
 const showSelectedProducts = ref(false)
 const loading = ref(false)
 const loadingMore = ref(false)
+const isSidebarHidden = ref(false)
 
 // 无限滚动相关
 const currentCategoryIndex = ref(0)
@@ -1002,10 +1010,189 @@ const editSpecs = (item: any) => {
   console.log('点击更改按钮，跳转到商品详情页，参数:', { edit: 'true', cartItemId: item.id })
 }
 
+// 预览商品图片
+const previewImage = (product: Product) => {
+  const imageUrl = getImageUrl(product.image || product.images)
+  if (imageUrl) {
+    try {
+      // 创建自定义图片预览
+      createCustomImagePreview(imageUrl)
+    } catch (error) {
+      console.error('图片预览失败:', error)
+      // 降级处理，直接打开图片
+      window.open(imageUrl, '_blank')
+    }
+  }
+}
+
+// 创建自定义图片预览
+const createCustomImagePreview = (imageUrl: string) => {
+  // 检查是否已有预览元素
+  const existingPreview = document.getElementById('custom-image-preview')
+  if (existingPreview) {
+    existingPreview.remove()
+  }
+  
+  // 创建预览容器
+  const previewContainer = document.createElement('div')
+  previewContainer.id = 'custom-image-preview'
+  previewContainer.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.9);
+    touch-action: none;
+  `
+  
+  // 创建图片元素
+  const img = document.createElement('img')
+  img.src = imageUrl
+  img.style.cssText = `
+    max-width: 90vw;
+    max-height: 90vh;
+    object-fit: contain;
+    cursor: pointer;
+  `
+  
+  // 创建关闭按钮
+  const closeBtn = document.createElement('div')
+  closeBtn.style.cssText = `
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    background-color: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 24px;
+    color: white;
+    font-weight: bold;
+  `
+  closeBtn.textContent = '×'
+  
+  // 添加点击事件
+  const closePreview = () => {
+    previewContainer.remove()
+  }
+  
+  previewContainer.addEventListener('click', closePreview)
+  img.addEventListener('click', closePreview)
+  closeBtn.addEventListener('click', closePreview)
+  
+  // 组装预览元素
+  previewContainer.appendChild(img)
+  previewContainer.appendChild(closeBtn)
+  
+  // 添加到body中
+  document.body.appendChild(previewContainer)
+}
+
+// 确保自定义预览样式存在
+const ensureCustomPreviewStyles = () => {
+  // 检查是否已有样式
+  if (document.getElementById('custom-preview-styles')) {
+    return
+  }
+  
+  // 创建样式元素
+  const style = document.createElement('style')
+  style.id = 'custom-preview-styles'
+  style.textContent = `
+    /* 确保图片预览在移动端正确显示 */
+    #custom-image-preview {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      z-index: 9999 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      background-color: rgba(0, 0, 0, 0.9) !important;
+      touch-action: none !important;
+    }
+    
+    #custom-image-preview img {
+      max-width: 90vw !important;
+      max-height: 90vh !important;
+      object-fit: contain !important;
+      cursor: pointer !important;
+    }
+    
+    #custom-image-preview div {
+      position: absolute !important;
+      top: 20px !important;
+      right: 20px !important;
+      width: 40px !important;
+      height: 40px !important;
+      background-color: rgba(255, 255, 255, 0.3) !important;
+      border-radius: 50% !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      cursor: pointer !important;
+      font-size: 24px !important;
+      color: white !important;
+      font-weight: bold !important;
+    }
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      #custom-image-preview div {
+        top: 15px !important;
+        right: 15px !important;
+        width: 36px !important;
+        height: 36px !important;
+        font-size: 22px !important;
+      }
+      
+      #custom-image-preview img {
+        max-width: 90vw !important;
+        max-height: 85vh !important;
+      }
+    }
+    
+    /* 小屏幕手机优化 */
+    @media (max-width: 480px) {
+      #custom-image-preview div {
+        top: 12px !important;
+        right: 12px !important;
+        width: 32px !important;
+        height: 32px !important;
+        font-size: 20px !important;
+      }
+      
+      #custom-image-preview img {
+        max-width: 95vw !important;
+        max-height: 80vh !important;
+      }
+    }
+  `
+  
+  // 添加到head中
+  document.head.appendChild(style)
+}
+
 // 去结算
 // 切换已选择商品显示状态
 const toggleSelectedProducts = () => {
   showSelectedProducts.value = !showSelectedProducts.value
+}
+
+// 切换侧边栏显示状态
+const toggleSidebar = () => {
+  isSidebarHidden.value = !isSidebarHidden.value
 }
 
 const checkout = () => {
@@ -1098,22 +1285,29 @@ onUnmounted(() => {
 })
 </script>
 
-<style scoped lang="scss">
+<style lang="scss">
 /* 分类页面样式 */
 .category-page {
-  min-height: 100vh;
-  background-color: #f5f5f5;
-  padding-bottom: 60px; /* 为底部导航栏留出空间 */
+  min-height: 100vh !important;
+  background-color: #f5f5f5 !important;
+  padding-bottom: 60px !important; /* 为底部导航栏留出空间 */
+}
+
+/* 加载状态管理 */
+.category-page-wrapper {
+  /* 初始状态：隐藏内容，避免样式闪烁 */
+  opacity: 1 !important;
+  transition: opacity 0.3s ease !important;
 }
 
 /* 搜索栏容器 */
 .search-bar-container {
-  background-color: #ffffff;
-  padding: 6px 10px;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  position: sticky;
-  top: var(--van-nav-bar-height);
-  z-index: 999;
+  background-color: #ffffff !important;
+  padding: 6px 10px !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  position: sticky !important;
+  top: var(--van-nav-bar-height) !important;
+  z-index: 999 !important;
 }
 
 /* 分类分隔线 */
@@ -1165,11 +1359,72 @@ onUnmounted(() => {
 }
 
 .category-container {
-  display: flex;
-  height: calc(100vh - var(--van-nav-bar-height) - 60px); /* 减少高度，为底部导航栏留出空间 */
-  background-color: #f5f5f5;
-  overflow: hidden;
+  display: flex !important;
+  height: calc(100vh - var(--van-nav-bar-height) - 60px) !important; /* 减少高度，为底部导航栏留出空间 */
+  background-color: #f5f5f5 !important;
+  overflow: hidden !important;
+  position: relative !important;
+  
+  /* 移动端优化 */
+  @media (max-width: 768px) {
+    height: calc(100vh - var(--van-nav-bar-height) - 60px) !important;
+  }
 }
+
+/* 展开按钮 */
+.expand-sidebar-btn {
+  position: absolute;
+  left: 0;
+  top: 250px;
+  background-color: #ee0a24;
+  border: none;
+  border-radius: 0 4px 4px 0;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 998;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  width: 20px;
+  height: 40px;
+  
+  &:hover {
+    background-color: #d40a1e;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+/* 收起按钮 */
+.sidebar-toggle-btn {
+  position: absolute;
+  left: 90px;
+  top: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 40px;
+  background-color: #ee0a24;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #ffffff;
+  border-radius: 0 4px 4px 0;
+  z-index: 998;
+  
+  &:hover {
+    background-color: #d40a1e;
+  }
+}
+
+
 
 .category-page-wrapper {
   height: 100vh;
@@ -1180,97 +1435,118 @@ onUnmounted(() => {
 
 /* 左侧分类列表样式 */
 .category-sidebar {
-  width: 90px;
-  background-color: #ffffff;
-  border-right: 1px solid #e0e0e0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  align-items: stretch;
-  padding-left: 5px;
+  width: 90px !important;
+  background-color: #ffffff !important;
+  border-right: 1px solid #e0e0e0 !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  align-items: stretch !important;
+  padding-left: 5px !important;
+  transition: transform 0.3s ease !important;
   
   /* 隐藏滚动条但保留滚动功能 */
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
+  scrollbar-width: thin !important;
+  scrollbar-color: transparent transparent !important;
   
   &::-webkit-scrollbar {
-    width: 4px;
+    width: 4px !important;
   }
   
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: transparent !important;
   }
   
   &::-webkit-scrollbar-thumb {
-    background-color: transparent;
-    border-radius: 4px;
+    background-color: transparent !important;
+    border-radius: 4px !important;
   }
   
   &:hover::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.1) !important;
   }
   
+  /* 隐藏状态 */
+  &.hidden {
+    transform: translateX(-100%) !important;
+    position: absolute !important;
+    z-index: 999 !important;
+  }
+  
+
+  
   .category-item {
-      padding: 14px 0;
-      text-align: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 65px;
-      padding-left: 5px;
+      padding: 14px 0 !important;
+      text-align: center !important;
+      cursor: pointer !important;
+      transition: all 0.2s ease !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      min-height: 65px !important;
+      padding-left: 5px !important;
     
     &:hover {
-      background-color: #f8f8f8;
+      background-color: #f8f8f8 !important;
     }
     
     &.active {
-      background-color: #ee0a24;
-      box-shadow: none;
+      background-color: #ee0a24 !important;
+      box-shadow: none !important;
       /* 确保激活状态的分类项完全填满容器宽度，消除右侧白色缝隙 */
-      width: calc(100% - 10px); /* 调整宽度以适应居中显示 */
-      position: relative;
-      left: 5px; /* 居中显示 */
-      z-index: 1;
+      width: calc(100% - 10px) !important; /* 调整宽度以适应居中显示 */
+      position: relative !important;
+      left: 5px !important; /* 居中显示 */
+      z-index: 1 !important;
     }
     
     .category-name {
-      font-size: clamp(13px, 3.8vw, 16px); /* 增大字体大小 */
-      font-weight: 600;
-      color: #666666;
-      line-height: 1.3;
-      display: block;
-      padding: 0 8px;
-      word-wrap: break-word;
-      white-space: normal;
-      height: auto;
-      overflow: hidden;
-      text-align: center;
+      font-size: clamp(13px, 3.8vw, 16px) !important; /* 增大字体大小 */
+      font-weight: 600 !important;
+      color: #666666 !important;
+      line-height: 1.3 !important;
+      display: block !important;
+      padding: 0 8px !important;
+      word-wrap: break-word !important;
+      white-space: normal !important;
+      height: auto !important;
+      overflow: hidden !important;
+      text-align: center !important;
     }
     
     &.active .category-name {
-      color: #ffffff;
-      font-weight: bold;
-      font-size: clamp(14px, 4.2vw, 17px); /* 增大激活状态字体大小 */
-      text-align: center;
-      margin: 0 auto;
-      padding: 0 12px;
+      color: #ffffff !important;
+      font-weight: bold !important;
+      font-size: clamp(14px, 4.2vw, 17px) !important; /* 增大激活状态字体大小 */
+      text-align: center !important;
+      margin: 0 auto !important;
+      padding: 0 12px !important;
     }
   }
 }
 
 /* 右侧商品内容样式 */
 .category-content {
-  flex: 1;
-  overflow-y: auto;
-  background-color: #ffffff;
-  padding-top: 0;
+  flex: 1 !important;
+  overflow-y: auto !important;
+  background-color: #ffffff !important;
+  padding-top: 0 !important;
+  
+  /* 移动端优化 */
+  @media (max-width: 768px) {
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
   
   .product-list {
-    padding: 0;
-    padding-bottom: 180px; /* 增加底部内边距，避免被底部导航和购物车区域遮挡 */
+    padding: 0 !important;
+    padding-bottom: 180px !important; /* 增加底部内边距，避免被底部导航和购物车区域遮挡 */
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      padding-bottom: 160px !important;
+    }
   }
   
   /* 分类分隔线 */
@@ -1286,6 +1562,12 @@ onUnmounted(() => {
     top: 0;
     z-index: 100;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      padding: 10px 16px;
+      font-size: 15px;
+    }
   }
   
   /* 单个商品样式 */
@@ -1298,6 +1580,12 @@ onUnmounted(() => {
     
     &:last-child {
       border-bottom: none;
+    }
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      padding: 12px 16px;
+      flex-wrap: nowrap;
     }
   }
   
@@ -1343,9 +1631,17 @@ onUnmounted(() => {
     cursor: pointer;
     background-color: #fafafa;
     
-    .van-image {
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      width: 70px;
+      height: 70px;
+      margin-right: 10px;
+    }
+    
+    img {
       width: 100%;
       height: 100%;
+      object-fit: cover;
     }
     
     .product-image-placeholder {
@@ -1360,25 +1656,36 @@ onUnmounted(() => {
     }
     
     /* 已售罄标识 */
-    .sold-out-tag {
-      position: absolute;
-      top: 5px;
-      right: 5px;
-      background-color: #fff3cd;
-      color: #856404;
-      font-size: 12px;
-      font-weight: bold;
-      padding: 2px 6px;
-      border-radius: 3px;
-      z-index: 2;
+  .sold-out-tag {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background-color: #fff3cd;
+    color: #856404;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 3px;
+    z-index: 2;
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      font-size: 10px;
+      padding: 1px 4px;
     }
   }
-  
-  /* 商品信息样式 */
-  .product-info {
-    flex: 1;
+}
+
+/* 商品信息样式 */
+.product-info {
+  flex: 1;
     min-width: 0;
     margin-right: 12px;
+    
+    /* 移动端优化 */
+    @media (max-width: 768px) {
+      margin-right: 8px;
+    }
     
     .product-name {
       font-size: 14px;
@@ -1392,18 +1699,35 @@ onUnmounted(() => {
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
+      
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        font-size: 13px;
+        margin-bottom: 4px;
+      }
     }
     
     .product-stock {
       font-size: 12px;
       color: #999999;
       margin-bottom: 6px;
+      
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        font-size: 11px;
+        margin-bottom: 4px;
+      }
     }
     
     .product-price {
       font-size: 18px;
       font-weight: bold;
       color: #ee0a24;
+      
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        font-size: 16px;
+      }
     }
   }
   
@@ -1414,6 +1738,11 @@ onUnmounted(() => {
       justify-content: flex-end;
       min-width: 60px;
       
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        min-width: 50px;
+      }
+      
       /* 已售罄按钮 */
       .sold-out-btn {
         background-color: #ffd700;
@@ -1423,6 +1752,12 @@ onUnmounted(() => {
         padding: 4px 10px;
         border-radius: 12px;
         cursor: not-allowed;
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+          font-size: 10px;
+          padding: 3px 8px;
+        }
       }
       
       /* 选规格按钮 */
@@ -1448,6 +1783,13 @@ onUnmounted(() => {
         min-width: auto;
         white-space: nowrap;
         padding: 0 12px;
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+          height: 24px;
+          font-size: 11px;
+          padding: 0 10px;
+        }
         
         &:hover {
           background: #d40a1e;
@@ -1477,6 +1819,13 @@ onUnmounted(() => {
       box-shadow: 0 2px 6px rgba(238, 10, 36, 0.3);
       transition: all 0.2s ease;
       overflow: hidden;
+      
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        width: 24px;
+        height: 24px;
+        font-size: 16px;
+      }
       
       &:hover {
         background: #d40a1e;
@@ -1520,6 +1869,12 @@ onUnmounted(() => {
       overflow: hidden;
       box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
       
+      /* 移动端优化 */
+      @media (max-width: 768px) {
+        width: 70px;
+        height: 22px;
+      }
+      
       /* 数量按钮 */
       .quantity-btn {
         width: 26px;
@@ -1533,6 +1888,12 @@ onUnmounted(() => {
         border: none;
         outline: none;
         font-size: 14px;
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+          width: 22px;
+          font-size: 12px;
+        }
         
         &.minus {
           color: #ee0a24;
@@ -1565,6 +1926,11 @@ onUnmounted(() => {
         min-width: 16px;
         border-left: 1px solid #ee0a24;
         border-right: 1px solid #ee0a24;
+        
+        /* 移动端优化 */
+        @media (max-width: 768px) {
+          font-size: 12px;
+        }
       }
     }
   }
@@ -1984,5 +2350,109 @@ onUnmounted(() => {
       }
     }
   }
+}
+
+/* 自定义图片预览样式 - 高优先级覆盖 */
+:global(.custom-image-preview),
+:global(.van-image-preview),
+:global(.van-image-preview__image),
+:global(.van-image-preview__image img),
+:global(.van-image-preview__close),
+:global(.van-image-preview__indicator),
+:global(.van-image-preview__loading) {
+  box-sizing: border-box !important;
+}
+
+/* 预览容器 */
+:global(.custom-image-preview) {
+  background-color: #ffffff !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9999 !important;
+}
+
+/* Vant图片预览容器 */
+:global(.van-image-preview) {
+  background-color: #ffffff !important;
+  width: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+}
+
+/* 图片容器 */
+:global(.van-image-preview__image) {
+  background-color: #ffffff !important;
+  border-radius: 0 !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
+}
+
+/* 图片本身 */
+:global(.van-image-preview__image img) {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 100vh !important;
+  object-fit: contain !important;
+  display: block !important;
+}
+
+/* 关闭按钮 */
+:global(.van-image-preview__close) {
+  top: 15px !important;
+  right: 15px !important;
+  width: 32px !important;
+  height: 32px !important;
+  line-height: 32px !important;
+  font-size: 20px !important;
+  background-color: rgba(0, 0, 0, 0.2) !important;
+  border-radius: 50% !important;
+  color: #000000 !important;
+  z-index: 10000 !important;
+  position: fixed !important;
+}
+
+/* 指示器 */
+:global(.van-image-preview__indicator) {
+  bottom: 15px !important;
+  background-color: rgba(0, 0, 0, 0.6) !important;
+  padding: 4px 10px !important;
+  border-radius: 14px !important;
+  font-size: 12px !important;
+  color: #ffffff !important;
+  position: fixed !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 10000 !important;
+}
+
+/* 图片加载状态 */
+:global(.van-image-preview__loading) {
+  background-color: #ffffff !important;
+  border-radius: 0 !important;
+  padding: 15px !important;
+  margin: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  position: relative !important;
 }
 </style>

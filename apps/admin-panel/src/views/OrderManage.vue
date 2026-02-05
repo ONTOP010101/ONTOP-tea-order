@@ -366,21 +366,23 @@ const extractCategories = () => {
 const loadOrders = async () => {
   loading.value = true
   try {
-    const { data } = await axios.get<ApiResponse>('/api/orders/admin/all', {
+    // 使用正确的端口和requestType参数
+    const { data } = await axios.get<ApiResponse>('http://localhost:3003/api/orders/admin/all', {
       params: {
         page: 1,
-        pageSize: 50
+        pageSize: 50,
+        requestType: 'admin' // 管理后台请求，返回所有订单
       }
     })
     
     if (data.code === 200) {
-    orders.value = data.data.list || []
-    console.log('订单数据加载成功:', orders.value.length, '条')
-    // 打印第一条订单的详细信息，了解数据结构
-    if (orders.value.length > 0) {
-      console.log('订单数据结构:', JSON.stringify(orders.value[0], null, 2))
+      orders.value = data.data.list || []
+      console.log('订单数据加载成功:', orders.value.length, '条')
+      // 打印第一条订单的详细信息，了解数据结构
+      if (orders.value.length > 0) {
+        console.log('订单数据结构:', JSON.stringify(orders.value[0], null, 2))
+      }
     }
-  }
   } catch (error) {
     console.error('加载订单失败:', error)
   } finally {

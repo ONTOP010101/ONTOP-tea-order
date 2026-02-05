@@ -20,10 +20,9 @@
     <link rel="preconnect" href="/uploads" crossorigin>
     <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <!-- 预加载关键CSS -->
-    <link rel="preload" as="style" href="/src/styles/global.scss" crossorigin>
     <!-- 字体加载优化 -->
-    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" as="fetch" crossorigin="anonymous" referrerpolicy="no-referrer">
+    <link rel="preload" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" as="style" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" crossorigin="anonymous">
     <style>
       /* 字体加载策略 */
       @font-face {
@@ -60,22 +59,78 @@
       #app {
         min-height: 100vh;
       }
+      
+      /* 强制分类页面样式 */
+      .category-page-wrapper {
+        opacity: 1 !important;
+        background-color: #f5f5f5 !important;
+      }
+      .category-container {
+        display: flex !important;
+        height: calc(100vh - var(--van-nav-bar-height) - 60px) !important;
+        background-color: #f5f5f5 !important;
+        overflow: hidden !important;
+        position: relative !important;
+      }
+      .category-sidebar {
+        width: 90px !important;
+        background-color: #ffffff !important;
+        border-right: 1px solid #e0e0e0 !important;
+        overflow-y: auto !important;
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+      }
+      .category-content {
+        flex: 1 !important;
+        overflow-y: auto !important;
+        background-color: #ffffff !important;
+        padding-top: 0 !important;
+      }
     </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app" style="display: none;"></div>
+    <div id="loading-container" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #f5f5f5; display: flex; align-items: center; justify-content: center; z-index: 9999;">
+      <div style="text-align: center;">
+        <div style="width: 40px; height: 40px; border: 4px solid #f3f3f3; border-top: 4px solid #ee0a24; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 16px;"></div>
+        <div style="color: #333; font-size: 16px;">加载中...</div>
+      </div>
+    </div>
+    <style>
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
     <script type="module" src="/src/main.ts"></script>
-    <!-- 延迟加载字体CSS -->
     <script>
-      (function() {
-        var link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap';
-        link.crossOrigin = 'anonymous';
-        var head = document.head;
-        head.appendChild(link);
-      })();
+      // 检测首次访问并强制刷新
+      if (!localStorage.getItem('app_loaded')) {
+        localStorage.setItem('app_loaded', 'true');
+        // 延迟100ms后刷新，确保localStorage已设置
+        setTimeout(function() {
+          window.location.reload(true); // 强制刷新，跳过缓存
+        }, 100);
+      } else {
+        // 不是首次访问，正常显示
+        window.addEventListener('load', function() {
+          setTimeout(function() {
+            document.getElementById('loading-container').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+          }, 500);
+        });
+        
+        // 页面加载超时处理
+        setTimeout(function() {
+          if (document.getElementById('loading-container')) {
+            document.getElementById('loading-container').style.display = 'none';
+            document.getElementById('app').style.display = 'block';
+          }
+        }, 5000);
+      }
     </script>
+
     
     <!-- 微信浏览器特殊优化 -->
     <script>
@@ -104,6 +159,16 @@
           try {
             localStorage.setItem('wechat_optimization', 'enabled');
             localStorage.setItem('last_visit', Date.now().toString());
+            
+            // 检测是否需要强制刷新
+            const currentVersion = '1.0.1'; // 版本号，每次更新时递增
+            const storedVersion = localStorage.getItem('app_version');
+            
+            if (storedVersion !== currentVersion) {
+              // 版本不同，强制刷新页面
+              localStorage.setItem('app_version', currentVersion);
+              location.reload(true); // 强制刷新，跳过缓存
+            }
           } catch (e) {
             console.log('localStorage不可用');
           }
@@ -126,6 +191,37 @@
                 document.head.appendChild(link);
               });
             }, 1000);
+          }
+          
+          // 4. 强制清除缓存，解决微信浏览器通过链接进入的问题
+          try {
+            // 清除可能影响页面加载的缓存
+            if (window.location.href.indexOf('?') === -1) {
+              // 为URL添加随机参数，强制微信浏览器重新加载
+              const randomParam = 'v=' + Date.now();
+              const newUrl = window.location.href + '?' + randomParam;
+              // 不直接跳转，而是在DOM加载完成后处理
+              if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                  // 检查是否已经处理过
+                  if (!localStorage.getItem('cache_cleared')) {
+                    localStorage.setItem('cache_cleared', 'true');
+                    // 延迟执行，避免影响首屏加载
+                    setTimeout(function() {
+                      window.history.replaceState({}, '', newUrl);
+                    }, 1000);
+                  }
+                });
+              } else {
+                // DOM已经加载完成
+                if (!localStorage.getItem('cache_cleared')) {
+                  localStorage.setItem('cache_cleared', 'true');
+                  window.history.replaceState({}, '', newUrl);
+                }
+              }
+            }
+          } catch (e) {
+            console.log('缓存清除失败:', e);
           }
         }
         
