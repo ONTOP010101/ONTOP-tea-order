@@ -82,7 +82,7 @@ export class OrderService {
       
       const order_no = await this.generateOrderNo();
       
-      // 处理商品信息，强制使用中文名称和中文规格
+      // 处理商品信息，强制使用中文名称和中文规格，并检查库存
       const processedItems = await Promise.all(data.items.map(async (item: any) => {
         // 根据商品ID获取完整商品信息
         const product = await this.productService.findOne(parseInt(item.productId));
@@ -90,6 +90,12 @@ export class OrderService {
         
         if (!product) {
           throw new Error(`商品不存在: ${item.productId}`);
+        }
+        
+        // 检查库存是否充足
+        const requiredStock = item.quantity || 1;
+        if (product.stock < requiredStock) {
+          throw new Error(`商品库存不足: ${product.name}，当前库存: ${product.stock}，需要: ${requiredStock}`);
         }
         
         // 复制商品信息，强制使用中文名称
@@ -157,6 +163,38 @@ export class OrderService {
       // 将JSON字符串反序列化为数组
       savedOrder.items = JSON.parse(savedOrder.items);
       console.log('处理后的订单:', savedOrder);
+
+      // 减少商品库存
+      if (Array.isArray(savedOrder.items)) {
+        for (const item of savedOrder.items) {
+          if (typeof item === 'object' && item !== null) {
+            const productId = parseInt(item.productId as string);
+            const quantity = (item.quantity as number) || 1;
+            
+            try {
+              // 获取当前商品信息
+              const currentProduct = await this.productService.findOne(productId);
+              if (currentProduct) {
+                // 计算新库存
+                const newStock = currentProduct.stock - quantity;
+                // 更新库存
+                await this.productService.updateStock(productId, newStock);
+                console.log(`商品 ${currentProduct.name} 库存已更新: ${currentProduct.stock} -> ${newStock}`);
+                
+                // 当库存变为0时，自动下架商品
+                if (newStock === 0) {
+                  console.log(`商品 ${currentProduct.name} 库存为0，自动下架`);
+                  await this.productService.updateStatus(productId, 0);
+                  console.log(`商品 ${currentProduct.name} 已成功下架`);
+                }
+              }
+            } catch (error) {
+              console.error(`更新商品库存失败: ${productId}`, error);
+              // 库存更新失败不影响订单创建，只记录错误
+            }
+          }
+        }
+      }
 
       // WebSocket实时推送新订单 - 添加try-catch防止WebSocket错误影响订单创建
       try {
@@ -248,13 +286,76 @@ export class OrderService {
   }
 
   async updateStatus(id: string, status: 'pending' | 'making' | 'ready' | 'completed' | 'cancelled') {
+    // 获取订单当前状态
+    const currentOrder = await this.findOne(id);
+    
     await this.orderRepository.update(id, { status });
-    const order = await this.findOne(id);
+    const updatedOrder = await this.findOne(id);
+    
+    // 如果订单状态从非cancelled变为cancelled，返回库存
+    if (status === 'cancelled' && currentOrder.status !== 'cancelled') {
+      console.log('订单状态更新为已取消，开始返回商品库存');
+      
+      // 返回商品库存
+      try {
+        let items = [];
+        if (updatedOrder.items) {
+          if (Array.isArray(updatedOrder.items)) {
+            items = updatedOrder.items;
+          } else if (typeof updatedOrder.items === 'string') {
+            items = JSON.parse(updatedOrder.items);
+          }
+        }
+        
+        console.log('取消订单时的商品信息:', items);
+        
+        if (Array.isArray(items) && items.length > 0) {
+          console.log('开始返回商品库存，共', items.length, '个商品');
+          for (const item of items) {
+            console.log('处理商品:', item);
+            if (typeof item === 'object' && item !== null) {
+              const productId = parseInt(item.productId as string);
+              const quantity = (item.quantity as number) || 1;
+              
+              console.log('商品ID:', productId, '，数量:', quantity);
+              
+              try {
+                // 获取当前商品信息
+                const currentProduct = await this.productService.findOne(productId);
+                console.log('当前商品信息:', currentProduct);
+                if (currentProduct) {
+                  // 计算新库存（返回库存）
+                  const newStock = currentProduct.stock + quantity;
+                  console.log('库存更新前:', currentProduct.stock, '，更新后:', newStock);
+                  // 更新库存
+                  await this.productService.updateStock(productId, newStock);
+                  console.log(`商品 ${currentProduct.name} 库存已返回: ${currentProduct.stock} -> ${newStock}`);
+                  
+                  // 当库存从0变为大于0时，自动上架商品
+                  if (currentProduct.stock === 0 && newStock > 0) {
+                    console.log(`商品 ${currentProduct.name} 库存恢复，自动上架`);
+                    await this.productService.updateStatus(productId, 1);
+                    console.log(`商品 ${currentProduct.name} 已成功上架`);
+                  }
+                }
+              } catch (error) {
+                console.error(`返回商品库存失败: ${productId}`, error);
+                // 库存返回失败不影响订单状态更新，只记录错误
+              }
+            }
+          }
+        } else {
+          console.log('没有商品信息需要返回库存');
+        }
+      } catch (error) {
+        console.error('处理库存返回时发生错误:', error);
+      }
+    }
     
     // WebSocket推送订单状态变更
-    this.orderGateway.notifyOrderStatusChange(order);
+    this.orderGateway.notifyOrderStatusChange(updatedOrder);
     
-    return order;
+    return updatedOrder;
   }
 
   async exportOrders(query: any, res: any) {
@@ -420,7 +521,8 @@ export class OrderService {
         'order.id',
         'order.user_id',
         'order.session_id',
-        'order.status'
+        'order.status',
+        'order.items'
       ])
       .where('order.id = :id', { id: parseInt(id) })
       .getOne();
@@ -438,7 +540,65 @@ export class OrderService {
       throw new Error('订单状态不允许取消');
     }
     
-    return this.updateStatus(id, 'cancelled');
+    // 更新订单状态为已取消
+    const cancelledOrder = await this.updateStatus(id, 'cancelled');
+    
+    // 返回商品库存
+    try {
+      let items = [];
+      if (cancelledOrder.items) {
+        if (Array.isArray(cancelledOrder.items)) {
+          items = cancelledOrder.items;
+        } else if (typeof cancelledOrder.items === 'string') {
+          items = JSON.parse(cancelledOrder.items);
+        }
+      }
+      
+      console.log('取消订单时的商品信息:', items);
+      
+      if (Array.isArray(items) && items.length > 0) {
+        console.log('开始返回商品库存，共', items.length, '个商品');
+        for (const item of items) {
+          console.log('处理商品:', item);
+          if (typeof item === 'object' && item !== null) {
+            const productId = parseInt(item.productId as string);
+            const quantity = (item.quantity as number) || 1;
+            
+            console.log('商品ID:', productId, '，数量:', quantity);
+            
+            try {
+              // 获取当前商品信息
+              const currentProduct = await this.productService.findOne(productId);
+              console.log('当前商品信息:', currentProduct);
+              if (currentProduct) {
+                // 计算新库存（返回库存）
+                const newStock = currentProduct.stock + quantity;
+                console.log('库存更新前:', currentProduct.stock, '，更新后:', newStock);
+                // 更新库存
+                await this.productService.updateStock(productId, newStock);
+                console.log(`商品 ${currentProduct.name} 库存已返回: ${currentProduct.stock} -> ${newStock}`);
+                
+                // 当库存从0变为大于0时，自动上架商品
+                if (currentProduct.stock === 0 && newStock > 0) {
+                  console.log(`商品 ${currentProduct.name} 库存恢复，自动上架`);
+                  await this.productService.updateStatus(productId, 1);
+                  console.log(`商品 ${currentProduct.name} 已成功上架`);
+                }
+              }
+            } catch (error) {
+              console.error(`返回商品库存失败: ${productId}`, error);
+              // 库存返回失败不影响订单取消，只记录错误
+            }
+          }
+        }
+      } else {
+        console.log('没有商品信息需要返回库存');
+      }
+    } catch (error) {
+      console.error('处理库存返回时发生错误:', error);
+    }
+    
+    return cancelledOrder;
   }
 
   // 管理端查询所有订单，支持按session_id筛选

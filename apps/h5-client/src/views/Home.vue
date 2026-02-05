@@ -319,8 +319,9 @@ const loadData = async () => {
     ])
     banners.value = bannerRes || []
     categories.value = categoryRes
-    hotProducts.value = hotRes
-    newProducts.value = newRes
+    // 过滤掉库存为0的商品
+    hotProducts.value = hotRes.filter(product => product.stock > 0)
+    newProducts.value = newRes.filter(product => product.stock > 0)
   } catch (error) {
     // 静默处理错误，不显示在控制台
   }

@@ -61,8 +61,8 @@ export class TimeLimitedProductController {
   async createTimeLimitedProduct(
     @Body() data: {
       product_id: number;
-      start_time: string;
-      end_time: string;
+      daily_start_time?: string;
+      daily_end_time?: string;
       sort: number;
     }
   ) {
@@ -84,8 +84,8 @@ export class TimeLimitedProductController {
     @Param('id') id: number,
     @Body() data: {
       product_id?: number;
-      start_time?: string;
-      end_time?: string;
+      daily_start_time?: string;
+      daily_end_time?: string;
       sort?: number;
     }
   ) {

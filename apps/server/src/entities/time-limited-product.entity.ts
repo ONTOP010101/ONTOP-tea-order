@@ -9,11 +9,11 @@ export class TimeLimitedProduct {
   @Column({ name: 'product_id', nullable: false })
   product_id: number;
 
-  @Column({ name: 'start_time', type: 'datetime', nullable: false })
-  start_time: string;
+  @Column({ name: 'daily_start_time', type: 'time', nullable: true })
+  daily_start_time: string;
 
-  @Column({ name: 'end_time', type: 'datetime', nullable: false })
-  end_time: string;
+  @Column({ name: 'daily_end_time', type: 'time', nullable: true })
+  daily_end_time: string;
 
   @Column({ default: 0 })
   sort: number;

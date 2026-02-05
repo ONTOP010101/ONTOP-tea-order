@@ -271,19 +271,24 @@ const isAllCategoriesLoaded = ref(false)
 
 // 过滤后的商品
 const filteredProducts = computed(() => {
+  let filtered = products.value
+  
+  // 过滤掉库存为0的商品
+  filtered = filtered.filter(product => product.stock > 0)
+  
   // 当处于搜索状态时，直接返回搜索结果，不进行额外过滤
   if (isSearching.value) {
-    return products.value
+    return filtered
   }
   
-  // 当搜索关键词为空时，返回所有商品
+  // 当搜索关键词为空时，返回过滤后的商品
   if (!searchKeyword.value.trim()) {
-    return products.value
+    return filtered
   }
   
   // 当不处于搜索状态但有搜索关键词时，进行本地过滤
   const keyword = searchKeyword.value.toLowerCase()
-  return products.value.filter(product => {
+  return filtered.filter(product => {
     const productName = getProductName(product).toLowerCase()
     return productName.includes(keyword)
   })

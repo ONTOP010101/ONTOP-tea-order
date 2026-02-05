@@ -45,14 +45,14 @@
             {{ row.product?.name }}
           </template>
         </el-table-column>
-        <el-table-column label="开始时间" width="180">
+        <el-table-column label="每日开始时间" width="180">
           <template #default="{ row }">
-            {{ formatTime(row.start_time) }}
+            {{ row.daily_start_time || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="结束时间" width="180">
+        <el-table-column label="每日结束时间" width="180">
           <template #default="{ row }">
-            {{ formatTime(row.end_time) }}
+            {{ row.daily_end_time || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100">
@@ -80,12 +80,12 @@
             <h4 class="product-name">{{ item.product?.name }}</h4>
             <div class="time-info">
               <div class="time-item">
-                <span class="label">开始时间：</span>
-                <span class="value">{{ formatTime(item.start_time) }}</span>
+                <span class="label">每日开始时间：</span>
+                <span class="value">{{ item.daily_start_time || '-' }}</span>
               </div>
               <div class="time-item">
-                <span class="label">结束时间：</span>
-                <span class="value">{{ formatTime(item.end_time) }}</span>
+                <span class="label">每日结束时间：</span>
+                <span class="value">{{ item.daily_end_time || '-' }}</span>
               </div>
             </div>
             <div class="product-status">
@@ -131,25 +131,23 @@
           </el-select>
         </el-form-item>
 
-        <el-form-item label="开始时间" prop="start_time">
-          <el-date-picker
-            v-model="formData.start_time"
-            type="datetime"
-            placeholder="选择开始时间"
+        <el-form-item label="每日开始时间" prop="daily_start_time">
+          <el-time-picker
+            v-model="formData.daily_start_time"
+            placeholder="选择每日开始时间"
             style="width: 100%"
-            format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
+            format="HH:mm:ss"
+            value-format="HH:mm:ss"
           />
         </el-form-item>
 
-        <el-form-item label="结束时间" prop="end_time">
-          <el-date-picker
-            v-model="formData.end_time"
-            type="datetime"
-            placeholder="选择结束时间"
+        <el-form-item label="每日结束时间" prop="daily_end_time">
+          <el-time-picker
+            v-model="formData.daily_end_time"
+            placeholder="选择每日结束时间"
             style="width: 100%"
-            format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
+            format="HH:mm:ss"
+            value-format="HH:mm:ss"
           />
         </el-form-item>
 
@@ -198,15 +196,13 @@ const formRef = ref<FormInstance>()
 const formData = reactive({
   id: null,
   product_id: null,
-  start_time: '',
-  end_time: '',
+  daily_start_time: '',
+  daily_end_time: '',
   sort: 0
 })
 
 const rules = {
-  product_id: [{ required: true, message: '请选择商品', trigger: 'change' }],
-  start_time: [{ required: true, message: '请选择开始时间', trigger: 'change' }],
-  end_time: [{ required: true, message: '请选择结束时间', trigger: 'change' }]
+  product_id: [{ required: true, message: '请选择商品', trigger: 'change' }]
 }
 
 // 加载限时推荐商品列表
@@ -229,51 +225,7 @@ const loadTimeLimitedProducts = async () => {
     if (data.code === 200) {
       // 处理嵌套的数据结构
       const responseData = data.data.data ? data.data.data : data.data
-      // 处理时间字符串格式
-      const processedList = (responseData.list || []).map((item: any) => {
-        // 处理开始时间
-        let startTime = item.start_time
-        if (startTime) {
-          // 如果是ISO格式的时间字符串，转换为本地时间格式
-          if (startTime.includes('T')) {
-            const date = new Date(startTime)
-            startTime = date.toLocaleString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false
-            }).replace(/\//g, '-')
-          }
-        }
-        
-        // 处理结束时间
-        let endTime = item.end_time
-        if (endTime) {
-          // 如果是ISO格式的时间字符串，转换为本地时间格式
-          if (endTime.includes('T')) {
-            const date = new Date(endTime)
-            endTime = date.toLocaleString('zh-CN', {
-              year: 'numeric',
-              month: '2-digit',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: false
-            }).replace(/\//g, '-')
-          }
-        }
-        
-        return {
-          ...item,
-          start_time: startTime,
-          end_time: endTime
-        }
-      })
-      timeLimitedProducts.value = processedList
+      timeLimitedProducts.value = responseData.list || []
       pagination.total = responseData.total || 0
     } else {
       timeLimitedProducts.value = []
@@ -333,8 +285,8 @@ const handleEdit = (row: any) => {
   dialogTitle.value = '编辑限时商品'
   formData.id = row.id
   formData.product_id = row.product_id
-  formData.start_time = row.start_time
-  formData.end_time = row.end_time
+  formData.daily_start_time = row.daily_start_time || ''
+  formData.daily_end_time = row.daily_end_time || ''
   formData.sort = row.sort || 0
   dialogVisible.value = true
 }
@@ -350,8 +302,8 @@ const handleSubmit = async () => {
     try {
       const payload: any = {
         product_id: formData.product_id,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
+        daily_start_time: formData.daily_start_time,
+        daily_end_time: formData.daily_end_time,
         sort: formData.sort
       }
 
@@ -398,8 +350,8 @@ const handleDelete = async (row: any) => {
 const resetForm = () => {
   formData.id = null
   formData.product_id = null
-  formData.start_time = ''
-  formData.end_time = ''
+  formData.daily_start_time = ''
+  formData.daily_end_time = ''
   formData.sort = 0
   formRef.value?.clearValidate()
 }
@@ -491,6 +443,7 @@ let refreshTimer: number | null = null
 // 无感刷新状态
 const refreshStatus = async () => {
   try {
+    console.log('开始刷新限时商品状态...')
     const { data } = await axios.get(`${API_BASE}/time-limited-products`, {
       params: {
         page: pagination.page,
@@ -502,18 +455,25 @@ const refreshStatus = async () => {
       withCredentials: true
     })
     
-    if (data.code === 200 && data.data && data.data.list) {
-      const newList = data.data.list
-      
-      // 只更新状态字段，保持其他数据不变
-      timeLimitedProducts.value.forEach((item: any, index: number) => {
-        const newItem = newList.find((i: any) => i.id === item.id)
-        if (newItem && newItem.status !== item.status) {
-          // 只更新状态字段，不影响其他数据
-          timeLimitedProducts.value[index].status = newItem.status
-          console.log(`更新商品 ${item.product.name} 的状态为: ${newItem.status}`)
-        }
-      })
+    console.log('收到刷新数据:', data)
+    
+    if (data.code === 200 && data.data) {
+      // 处理嵌套的数据结构
+      const responseData = data.data.data ? data.data.data : data.data
+      if (responseData.list) {
+        const newList = responseData.list
+        console.log('新状态列表:', newList)
+        
+        // 只更新状态字段，保持其他数据不变
+        timeLimitedProducts.value.forEach((item: any, index: number) => {
+          const newItem = newList.find((i: any) => i.id === item.id)
+          if (newItem && newItem.status !== item.status) {
+            // 只更新状态字段，不影响其他数据
+            timeLimitedProducts.value[index].status = newItem.status
+            console.log(`更新商品 ${item.product?.name} 的状态为: ${newItem.status}`)
+          }
+        })
+      }
     }
   } catch (error: any) {
     console.error('刷新状态失败:', error)
@@ -523,6 +483,11 @@ const refreshStatus = async () => {
 onMounted(() => {
   loadTimeLimitedProducts()
   loadAvailableProducts()
+  
+  // 立即执行一次刷新
+  setTimeout(() => {
+    refreshStatus()
+  }, 1000)
   
   // 设置定时器，每30秒刷新一次状态
   refreshTimer = window.setInterval(() => {
