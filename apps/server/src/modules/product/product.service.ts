@@ -305,10 +305,22 @@ export class ProductService {
   async batchCreate(dataList: Partial<Product>[]) {
     const products = [];
     
+    // 一次性获取所有现有ID
+    const existingProducts = await this.productRepository.find({ select: ['id'] });
+    const existingIds = new Set(existingProducts.map(product => product.id));
+    
+    // 找出最大的现有ID
+    let maxId = 0;
+    existingIds.forEach(id => {
+      if (id > maxId) {
+        maxId = id;
+      }
+    });
+    
+    // 为每个商品分配唯一ID
+    let currentId = maxId + 1;
+    
     for (const data of dataList) {
-      // 查找可用ID
-      const nextId = await this.findNextAvailableId();
-      
       // 处理images字段
       if (data.images && typeof data.images === 'string') {
         try {
@@ -320,7 +332,7 @@ export class ProductService {
 
       products.push(this.productRepository.create({
         ...data,
-        id: nextId,
+        id: currentId++,
         status: data.status !== undefined ? Number(data.status) : 1,
         stock: data.stock !== undefined ? Number(data.stock) : 0,
         price: data.price !== undefined ? Number(data.price) : 0,

@@ -12,6 +12,7 @@ import { WebsocketModule } from './modules/websocket/websocket.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { TranslationModule } from './translation/translation.module';
 import { SpecModule } from './modules/spec/spec.module';
+import { ExcelModule } from './modules/excel/excel.module';
 
 
 @Module({
@@ -52,6 +53,7 @@ import { SpecModule } from './modules/spec/spec.module';
     UploadModule,
     TranslationModule,
     SpecModule,
+    ExcelModule,
   ],
 })
 export class AppModule {}

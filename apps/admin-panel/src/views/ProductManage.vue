@@ -938,51 +938,6 @@ const handleExcelFile = (file: any) => {
   excelFileList.value = [file]
 }
 
-// 解析Excel文件
-const parseExcelFile = (file: File): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'binary' })
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
-        const jsonData = XLSX.utils.sheet_to_json(worksheet)
-        
-        // 清理数据中的图片占位符
-        const cleanedData = jsonData.map((item: any) => {
-          const cleanedItem: any = {}
-          
-          // 清理所有字段
-          for (const key in item) {
-            let value = item[key]
-            
-            // 处理 DISPIMG 格式
-            if (typeof value === 'string' && value.includes('=DISPIMG(')) {
-              value = ''
-            }
-            
-            cleanedItem[key] = value
-          }
-          
-          return cleanedItem
-        })
-        
-        resolve(cleanedData)
-      } catch (error) {
-        console.error('解析Excel文件失败:', error)
-        reject(error)
-      }
-    }
-    reader.onerror = (error) => {
-      console.error('读取Excel文件失败:', error)
-      reject(error)
-    }
-    reader.readAsBinaryString(file)
-  })
-}
-
 // 导入Excel文件
 const importExcel = async () => {
   if (!excelFile.value) {
@@ -990,113 +945,51 @@ const importExcel = async () => {
     return
   }
   
-  // 确保分类数据已加载
-  if (categories.value.length === 0) {
-    await loadCategories()
-    // 检查分类数据是否加载成功
-    if (categories.value.length === 0) {
-      ElMessage.warning('分类数据加载失败，请刷新页面重试')
-      return
-    }
-  }
-  
   importLoading.value = true
   
   try {
-    // 解析Excel文件
-    const products = await parseExcelFile(excelFile.value)
+    // 创建FormData对象
+    const formData = new FormData()
+    formData.append('file', excelFile.value)
     
-    if (products.length === 0) {
-      ElMessage.warning('Excel文件中没有数据')
-      return
+    // 调用后端API上传文件
+    const response = await axios.post(`${API_BASE}/excel/import/products`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 300000 // 5分钟超时
+    })
+    
+    if (response.data.code === 200) {
+      const result = response.data.data
+      
+      if (result.errors && result.errors.length > 0) {
+        // 显示错误信息
+        const errorMessages = result.errors.slice(0, 5).join('\n')
+        const moreErrors = result.errors.length > 5 ? `\n...等${result.errors.length - 5}个错误` : ''
+        
+        ElMessage({
+          message: `导入完成\n成功: ${result.successCount} 个\n失败: ${result.errorCount} 个\n\n错误信息:\n${errorMessages}${moreErrors}`,
+          type: 'warning',
+          duration: 10000
+        })
+      } else {
+        ElMessage.success(`成功导入 ${result.successCount} 个产品`)
+      }
+      
+      showImportDialog.value = false
+      excelFile.value = null
+      excelFileList.value = []
+      loadProducts() // 重新加载商品列表
+    } else {
+      ElMessage.error(response.data.message || '导入失败')
     }
-    
-    // 调用API添加产品
-    const successCount = await addProducts(products)
-    
-    ElMessage.success(`成功导入 ${successCount} 个产品`)
-    showImportDialog.value = false
-    excelFile.value = null
-    excelFileList.value = []
-    loadProducts() // 重新加载商品列表
-  } catch (error) {
-    ElMessage.error('导入Excel失败，请检查文件格式')
+  } catch (error: any) {
+    console.error('导入Excel失败:', error)
+    ElMessage.error(error.response?.data?.message || '导入失败，请检查网络连接')
   } finally {
     importLoading.value = false
   }
-}
-
-// 添加产品到数据库
-const addProducts = async (products: any[]): Promise<number> => {
-  let successCount = 0
-  
-  // 构建分类名称到ID的映射，忽略大小写
-  const categoryMap: Record<string, number> = {}
-  categories.value.forEach((cat: any) => {
-    categoryMap[cat.name.toLowerCase()] = cat.id
-  })
-  
-  for (const product of products) {
-    try {
-      // 检查产品数据完整性
-      const productName = product.name || product.商品名称 || ''
-      if (!productName) {
-        continue
-      }
-      
-      // 获取分类ID
-      let categoryId = 1 // 默认分类ID
-      const categoryName = product.category || product.分类 || ''
-      if (categoryName) {
-        const lowerCategoryName = categoryName.toLowerCase()
-        if (categoryMap[lowerCategoryName]) {
-          categoryId = categoryMap[lowerCategoryName]
-        }
-      }
-      
-      // 翻译商品名称和描述
-      let nameTranslations = { en: '', ar: '', es: '', pt: '' }
-      let descriptionTranslations = { en: '', ar: '', es: '', pt: '' }
-      
-      // 翻译商品名称
-      if (productName) {
-        nameTranslations = await callTranslationAPI(productName)
-      }
-      
-      // 翻译商品描述
-      const productDescription = product.description || product.描述 || ''
-      if (productDescription) {
-        descriptionTranslations = await callTranslationAPI(productDescription)
-      }
-      
-      // 构建产品数据结构
-      const productData = {
-        name: productName,
-        name_en: nameTranslations.en,
-        name_ar: nameTranslations.ar,
-        name_es: nameTranslations.es,
-        name_pt: nameTranslations.pt,
-        price: parseFloat(product.price || product.价格 || '0'),
-        category_id: categoryId,
-        description: productDescription,
-        description_en: descriptionTranslations.en,
-        description_ar: descriptionTranslations.ar,
-        description_es: descriptionTranslations.es,
-        description_pt: descriptionTranslations.pt,
-        image: product.image || product.图片 || '',
-        stock: parseInt(product.stock || product.库存 || '0'),
-        status: product.status || 1
-      }
-      
-      // 调用产品添加API
-      await axios.post(`${API_BASE}/products`, productData)
-      successCount++
-    } catch (error) {
-      // 继续处理下一个产品
-    }
-  }
-  
-  return successCount
 }
 
 // 跳转到限时推荐商品管理

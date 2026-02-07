@@ -551,49 +551,6 @@ const handleExcelFile = (file: any) => {
   excelFileList.value = [file]
 }
 
-// 解析Excel文件
-const parseExcelFile = (file: File): Promise<any[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const data = e.target?.result
-        const workbook = XLSX.read(data, { type: 'binary' })
-        const firstSheetName = workbook.SheetNames[0]
-        const worksheet = workbook.Sheets[firstSheetName]
-        const jsonData = XLSX.utils.sheet_to_json(worksheet)
-        
-        // 清理数据中的图片占位符
-        const cleanedData = jsonData.map((item: any) => {
-          const cleanedItem: any = {}
-          
-          // 清理所有字段
-          for (const key in item) {
-            let value = item[key]
-            
-            // 处理 DISPIMG 格式
-            if (typeof value === 'string' && value.includes('=DISPIMG(')) {
-              value = ''
-            }
-            
-            cleanedItem[key] = value
-          }
-          
-          return cleanedItem
-        })
-        
-        resolve(cleanedData)
-      } catch (error) {
-        reject(error)
-      }
-    }
-    reader.onerror = (error) => {
-      reject(error)
-    }
-    reader.readAsBinaryString(file)
-  })
-}
-
 // 导入Excel文件
 const importExcel = async () => {
   if (!excelFile.value) {
@@ -604,57 +561,48 @@ const importExcel = async () => {
   importLoading.value = true
   
   try {
-    // 解析Excel文件
-    const categories = await parseExcelFile(excelFile.value)
+    // 创建FormData对象
+    const formData = new FormData()
+    formData.append('file', excelFile.value)
     
-    if (categories.length === 0) {
-      ElMessage.warning('Excel文件中没有数据')
-      return
+    // 调用后端API上传文件
+    const response = await axios.post(`${API_BASE}/excel/import/categories`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      },
+      timeout: 120000 // 2分钟超时
+    })
+    
+    if (response.data.code === 200) {
+      const result = response.data.data
+      
+      if (result.errors && result.errors.length > 0) {
+        // 显示错误信息
+        const errorMessages = result.errors.slice(0, 5).join('\n')
+        const moreErrors = result.errors.length > 5 ? `\n...等${result.errors.length - 5}个错误` : ''
+        
+        ElMessage({
+          message: `导入完成\n成功: ${result.successCount} 个\n失败: ${result.errorCount} 个\n\n错误信息:\n${errorMessages}${moreErrors}`,
+          type: 'warning',
+          duration: 10000
+        })
+      } else {
+        ElMessage.success(`成功导入 ${result.successCount} 个分类`)
+      }
+      
+      showImportDialog.value = false
+      excelFile.value = null
+      excelFileList.value = []
+      loadCategories() // 重新加载分类列表
+    } else {
+      ElMessage.error(response.data.message || '导入失败')
     }
-    
-    // 调用API添加分类
-    const successCount = await addCategories(categories)
-    
-    ElMessage.success(`成功导入 ${successCount} 个分类`)
-    showImportDialog.value = false
-    excelFile.value = null
-    excelFileList.value = []
-    loadCategories() // 重新加载分类列表
-  } catch (error) {
-    ElMessage.error('导入Excel失败，请检查文件格式')
+  } catch (error: any) {
+    console.error('导入Excel失败:', error)
+    ElMessage.error(error.response?.data?.message || '导入失败，请检查网络连接')
   } finally {
     importLoading.value = false
   }
-}
-
-// 添加分类到数据库
-const addCategories = async (categories: any[]): Promise<number> => {
-  let successCount = 0
-  
-  for (const category of categories) {
-    try {
-      // 检查分类数据完整性
-      const categoryName = category.category || category.分类名称 || category.name || category.分类 || ''
-      if (!categoryName) {
-        continue
-      }
-      
-      // 构建分类数据结构
-      const categoryData = {
-        name: categoryName,
-        icon: category.image || category.图片 || '',
-        sort: category.sort || 0
-      }
-      
-      // 调用分类添加API
-      await axios.post(`${API_BASE}/categories`, categoryData)
-      successCount++
-    } catch (error) {
-      // 继续处理下一个分类
-    }
-  }
-  
-  return successCount
 }
 
 onMounted(() => {

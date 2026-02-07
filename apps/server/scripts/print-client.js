@@ -69,6 +69,55 @@ try {
   console.error(`创建日志目录失败: ${error.message}`);
 }
 
+// 日志清理函数
+function cleanOldLogs() {
+  try {
+    const maxFiles = config.log?.maxFiles || 7;
+    
+    // 读取日志目录中的所有文件
+    const files = fs.readdirSync(logsDir);
+    
+    // 过滤出日志文件
+    const logFiles = files.filter(file => {
+      return file.startsWith('print-client-') && file.endsWith('.log');
+    });
+    
+    // 按日期排序（旧的在前）
+    logFiles.sort((a, b) => {
+      const dateA = a.replace('print-client-', '').replace('.log', '');
+      const dateB = b.replace('print-client-', '').replace('.log', '');
+      return new Date(dateA) - new Date(dateB);
+    });
+    
+    // 需要删除的文件数量
+    const filesToDelete = logFiles.length - maxFiles;
+    
+    if (filesToDelete > 0) {
+      console.log(`发现 ${logFiles.length} 个日志文件，需要保留 ${maxFiles} 个，将删除 ${filesToDelete} 个旧文件`);
+      
+      // 删除旧文件
+      for (let i = 0; i < filesToDelete; i++) {
+        const fileToDelete = logFiles[i];
+        const filePath = path.join(logsDir, fileToDelete);
+        
+        try {
+          fs.unlinkSync(filePath);
+          console.log(`删除旧日志文件: ${fileToDelete}`);
+        } catch (error) {
+          console.error(`删除日志文件失败 ${fileToDelete}: ${error.message}`);
+        }
+      }
+    } else {
+      console.log(`日志文件数量正常: ${logFiles.length}/${maxFiles}`);
+    }
+  } catch (error) {
+    console.error(`日志清理失败: ${error.message}`);
+  }
+}
+
+// 执行日志清理
+cleanOldLogs();
+
 // 日志文件路径
 const logFilePath = path.join(logsDir, `print-client-${new Date().toISOString().split('T')[0]}.log`);
 

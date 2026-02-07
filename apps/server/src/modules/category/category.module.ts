@@ -9,5 +9,6 @@ import { TranslationModule } from '../../translation/translation.module';
   imports: [TypeOrmModule.forFeature([Category]), TranslationModule],
   controllers: [CategoryController],
   providers: [CategoryService],
+  exports: [CategoryService],
 })
 export class CategoryModule {}
