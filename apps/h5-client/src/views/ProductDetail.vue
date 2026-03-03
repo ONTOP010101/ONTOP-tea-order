@@ -886,7 +886,7 @@ watch(
 .product-detail-page {
   min-height: 100vh;
   background: #f5f5f5;
-  padding-bottom: 60px;
+  padding-bottom: 120px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 
